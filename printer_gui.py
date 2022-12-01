@@ -1,7 +1,8 @@
+#/html/body/table/tbody/tr/td/table/tbody/tr[2]/td/font/b
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QTableWidgetItem
 from wind import Ui_MainWindow  # импорт нашего сгенерированного файла
-from screeninfo import get_monitors
+#from screeninfo import get_monitors
 import sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -16,8 +17,10 @@ class BrowserHandler(QtCore.QObject):
 
  
 class mywindow(QtWidgets.QMainWindow):
-    url = 'http://192.168.0.73/scan.htm'
-    printer_name = 'Xerox WorkCentre 7345'
+    #url = 'http://192.168.0.73/scan.htm'
+    #printer_name = 'Xerox WorkCentre 7345'
+    url = 'http://192.168.0.128/prop.htm'
+    printer_name = 'Xerox WorkCentre M128'
     driver = None
     data_files = []
     n_file = 0 #номер файла на мечать
@@ -57,9 +60,16 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.tableWidget.cellClicked.connect(self.tab_click)
 
         self.ui.tableWidget.setRowCount(7)
-        self.ui.tableWidget.setColumnCount(3)
+        self.ui.tableWidget.setColumnCount(4)
         self.ui.label_2.setVisible(False)
         self.ui.label_3.setVisible(False)
+        
+        res = self.connect_to_printer()
+        if res == 1:
+            self.ui.label.setText("Принтер обнаружен")
+        else:
+            self.ui.label.setText("Принтер не обнаружен")
+        self.choice_mail_box()
 
     def btnClicked(self):
         self.ui.label.setText("Ожидание принтера ...")
@@ -67,12 +77,14 @@ class mywindow(QtWidgets.QMainWindow):
         if res == 1:
             self.ui.label.setText("Принтер обнаружен")
         else:
-            self.ui.label.setText("Принтер не обнаружен")    
+            self.ui.label.setText("Принтер не обнаружен")
+        self.choice_mail_box()
 
 
     def update_file_list(self):    
         print('update_file_list')
-        # self.ui.tableWidget.clear()
+        
+        self.ui.tableWidget.clear()
 
         self.list_files()    
         print(len(self.data_files))
@@ -82,11 +94,13 @@ class mywindow(QtWidgets.QMainWindow):
             row = 0
             for tup in self.data_files:
                 col = 0
-                for item in tup:
+                file_info = tup.split()
+                for item in file_info:
                     cellinfo = QTableWidgetItem(item)
                     self.ui.tableWidget.setItem(row, col, cellinfo)
                     col += 1
-
+                #cellinfo = QTableWidgetItem(tup)
+                #self.ui.tableWidget.setItem(row, col, cellinfo)
                 row += 1
             self.ui.label_3.setVisible(False)
         else:
@@ -99,10 +113,13 @@ class mywindow(QtWidgets.QMainWindow):
     def print_file(self):
         if (len(self.data_files)) and self.n_file > 0:
             try:
-                str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+                #str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+                str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
                 check_box1 = self.driver.find_element(By.XPATH, str1).click()
-                button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/input").click()
-                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
+                #button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/input").click()
+                button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/center/small/input").click()
+                #file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
+                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()
                 self.driver.back()
                 time.sleep(2)
                 iframe1 = self.driver.find_element(By.NAME,"RF")
@@ -138,11 +155,24 @@ class mywindow(QtWidgets.QMainWindow):
             #print(ex)
             return 0  
 
-
+    def choice_mail_box(self):
+        try:
+            #mail_box_num = driver.find_element(By.NAME, "list{}".format(num)).click()
+            mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
+            
+            return 1
+        except Exception as ex:
+            print(ex)
+            return 0
+    
+    
     def list_files(self):
         try:
-            l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
+            #l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
+            l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
+            
             for el in l:
+                print(el.text)
                 if len(el.text) != 0:
                     if 'Документ номер Имя документа' not in el.text:
                         #print(el.text)
