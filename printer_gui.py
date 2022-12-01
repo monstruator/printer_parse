@@ -17,10 +17,11 @@ class BrowserHandler(QtCore.QObject):
 
  
 class mywindow(QtWidgets.QMainWindow):
-    #url = 'http://192.168.0.73/scan.htm'
-    #printer_name = 'Xerox WorkCentre 7345'
-    url = 'http://192.168.0.128/prop.htm'
-    printer_name = 'Xerox WorkCentre M128'
+    printers = [
+        {'url' : 'http://192.168.0.73/scan.htm',  'name' : 'Xerox WorkCentre 7345'},
+        {'url' : 'http://192.168.0.128/prop.htm', 'name' : 'Xerox WorkCentre M128'}
+    ]
+    printer = 0
     driver = None
     data_files = []
     n_file = 0 #номер файла на мечать
@@ -29,8 +30,6 @@ class mywindow(QtWidgets.QMainWindow):
         super(mywindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        
-
         # for m in get_monitors():
         #     # str(m))
         #     self.window_width = m.width/3
@@ -52,7 +51,7 @@ class mywindow(QtWidgets.QMainWindow):
         options.add_argument("--headless")
 
         self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
-
+        self.driver.set_page_load_timeout(3)
         # подключение клик-сигнал к слоту btnClicked
         self.ui.pushButton.clicked.connect(self.btnClicked)
         self.ui.pushButton_2.clicked.connect(self.update_file_list)
@@ -64,31 +63,45 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label_2.setVisible(False)
         self.ui.label_3.setVisible(False)
         
-        res = self.connect_to_printer()
-        if res == 1:
-            self.ui.label.setText("Принтер обнаружен")
-        else:
-            self.ui.label.setText("Принтер не обнаружен")
-        self.choice_mail_box()
+        count1 = 0
+        for pr in self.printers:
+            print('Поиск принтера ', pr['name'])
+            res = self.connect_to_printer(pr)
+            count1 = count1 + 1
+            print('count ', count1)
+            
+            if res == 1:
+                self.ui.label.setText(pr['name'])
+                self.printer = count1
+                self.choice_mail_box()
+                break
+            else:
+                print('Не обнаружен принтер ', pr['name'])
+                self.ui.label.setText("Принтер не обнаружен ")
+            
 
     def btnClicked(self):
-        self.ui.label.setText("Ожидание принтера ...")
-        res = self.connect_to_printer()
-        if res == 1:
-            self.ui.label.setText("Принтер обнаружен")
-        else:
-            self.ui.label.setText("Принтер не обнаружен")
-        self.choice_mail_box()
+        count1 = 0
+        for pr in self.printers:
+            print('Поиск принтера ', pr['name'])
+            res = self.connect_to_printer(pr)
+            count1 = count1 + 1
+            print('count ', count1)
+            
+            if res == 1:
+                self.ui.label.setText(pr['name'])
+                self.printer = count1
+                self.choice_mail_box()
+                break
+            else:
+                print('Не обнаружен принтер ', pr['name'])
+                self.ui.label.setText("Принтер не обнаружен ")
 
 
     def update_file_list(self):    
         print('update_file_list')
-        
         self.ui.tableWidget.clear()
-
         self.list_files()    
-        print(len(self.data_files))
-
         if len(self.data_files) > 0:
             self.ui.tableWidget.setRowCount(len(self.data_files))
             row = 0
@@ -99,8 +112,6 @@ class mywindow(QtWidgets.QMainWindow):
                     cellinfo = QTableWidgetItem(item)
                     self.ui.tableWidget.setItem(row, col, cellinfo)
                     col += 1
-                #cellinfo = QTableWidgetItem(tup)
-                #self.ui.tableWidget.setItem(row, col, cellinfo)
                 row += 1
             self.ui.label_3.setVisible(False)
         else:
@@ -113,13 +124,20 @@ class mywindow(QtWidgets.QMainWindow):
     def print_file(self):
         if (len(self.data_files)) and self.n_file > 0:
             try:
-                #str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
-                str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+                print(self.printer)
+                if self.printer == 1:
+                    str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+                if self.printer == 2:
+                    str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
                 check_box1 = self.driver.find_element(By.XPATH, str1).click()
-                #button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/input").click()
-                button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/center/small/input").click()
-                #file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
-                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()
+                if self.printer == 1:
+                    button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/input").click()
+                if self.printer == 2:    
+                    button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/center/small/input").click()
+                if self.printer == 1:    
+                    file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
+                if self.printer == 2:
+                    file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()
                 self.driver.back()
                 time.sleep(2)
                 iframe1 = self.driver.find_element(By.NAME,"RF")
@@ -135,13 +153,11 @@ class mywindow(QtWidgets.QMainWindow):
             self.ui.label_2.setVisible(True)
 
     
-    def connect_to_printer(self):
+    def connect_to_printer(self, printer):
         try:
             print('START CONNECT')
-            self.driver.get(url=self.url)
-            #phtml = driver.page_source
+            self.driver.get(url=printer['url'])
             time.sleep(1) #2
-            #print(phtml)
             print('search')
             iframe = self.driver.find_element(By.NAME,"NF")
             self.driver.switch_to.frame(iframe)
@@ -156,10 +172,12 @@ class mywindow(QtWidgets.QMainWindow):
             return 0  
 
     def choice_mail_box(self):
+        print('choice_mail_box for ', self.printer)
         try:
-            #mail_box_num = driver.find_element(By.NAME, "list{}".format(num)).click()
-            mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
-            
+            if self.printer == 1:
+                mail_box_num = driver.find_element(By.NAME, "list{}".format(num)).click()
+            if self.printer == 2:
+                mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
             return 1
         except Exception as ex:
             print(ex)
@@ -167,9 +185,12 @@ class mywindow(QtWidgets.QMainWindow):
     
     
     def list_files(self):
+        self.data_files = []
         try:
-            #l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
-            l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
+            if self.printer == 1:
+                l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
+            if self.printer == 2:
+                l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
             
             for el in l:
                 print(el.text)
