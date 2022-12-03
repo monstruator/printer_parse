@@ -8,7 +8,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 import os
- 
+import glob
+#----------------------------------------------------------------- 
+from tif_to_pdf2 import convert_with_auto_rotate
+
 
 class BrowserHandler(QtCore.QObject):
     running = False
@@ -18,13 +21,15 @@ class BrowserHandler(QtCore.QObject):
  
 class mywindow(QtWidgets.QMainWindow):
     printers = [
-        {'url' : 'http://192.168.0.73/scan.htm',  'name' : 'Xerox WorkCentre 7345'},
-        {'url' : 'http://192.168.0.128/prop.htm', 'name' : 'Xerox WorkCentre M128'}
+        {'url' : 'http://192.168.0.73/scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
+        {'url' : 'http://192.168.0.128/prop.htm', 'name' : 'Xerox WorkCentre 1xx'}
     ]
     printer = 0
     driver = None
     data_files = []
     n_file = 0 #номер файла на мечать
+    current_file_name = ''
+    vert = 1 #ориентация выходного документа
 
     def __init__(self):
         super(mywindow, self).__init__()
@@ -55,13 +60,17 @@ class mywindow(QtWidgets.QMainWindow):
         # подключение клик-сигнал к слоту btnClicked
         self.ui.pushButton.clicked.connect(self.btnClicked)
         self.ui.pushButton_2.clicked.connect(self.update_file_list)
-        self.ui.pushButton_3.clicked.connect(self.print_file)
+        self.ui.pushButton_3.clicked.connect(self.load_file)
         self.ui.tableWidget.cellClicked.connect(self.tab_click)
-
+        self.ui.radioButton.toggled.connect(self.onClickedHorz)
+        self.ui.radioButton_2.toggled.connect(self.onClickedVert)
+        
         self.ui.tableWidget.setRowCount(7)
         self.ui.tableWidget.setColumnCount(4)
         self.ui.label_2.setVisible(False)
         self.ui.label_3.setVisible(False)
+
+        
         
         count1 = 0
         for pr in self.printers:
@@ -79,8 +88,18 @@ class mywindow(QtWidgets.QMainWindow):
                 print('Не обнаружен принтер ', pr['name'])
                 self.ui.label.setText("Принтер не обнаружен ")
             
-
-    def btnClicked(self):
+    #-----------------------------------------------------------------------------
+    def onClickedHorz(self):
+        if self.ui.radioButton.isChecked():
+            print('Horiz')
+            self.vert = 0
+        
+    def onClickedVert(self):
+        if self.ui.radioButton_2.isChecked():
+            print('Vert')   
+            self.vert = 1
+    
+    def btnClicked(self): #подключиться к принтреру
         count1 = 0
         for pr in self.printers:
             print('Поиск принтера ', pr['name'])
@@ -119,10 +138,15 @@ class mywindow(QtWidgets.QMainWindow):
 
     def tab_click(self):
         self.n_file = self.ui.tableWidget.currentRow() + 1
+        #print(self.data_files)
+        #print(self.n_file)
+        tup = self.data_files[self.n_file - 1]
+        t_split = tup.split()
+        self.current_file_name = 'img0' + t_split[0]
+        #print(self.current_file_name)
 
-
-    def print_file(self):
-        if (len(self.data_files)) and self.n_file > 0:
+    def load_file(self): #скачать файл
+        if (len(self.data_files)) and self.n_file > 0: # файлы есть и конкретный выбран
             try:
                 print(self.printer)
                 if self.printer == 1:
@@ -138,18 +162,33 @@ class mywindow(QtWidgets.QMainWindow):
                     file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
                 if self.printer == 2:
                     file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()
-                self.driver.back()
+                
+                self.driver.back() #вернуться на страницу с файлами
                 time.sleep(2)
                 iframe1 = self.driver.find_element(By.NAME,"RF")
                 self.driver.switch_to.frame(iframe1)
-                check_box1 = self.driver.find_element(By.XPATH, str1).click()
+                #поиск скачанного файла
+                str2 = self.current_file_name + '.tif'
+                for file in glob.glob(str2):
+                    print('Нашли файл tiff', file)
+                    convert_with_auto_rotate(str2, self.vert) #конвертация в pdf
+                    os.remove(file)
+                    str2 = self.current_file_name + '.pdf'
+                    
+                check_box1 = self.driver.find_element(By.XPATH, str1).click() #снять выделение
+                
+                self.ui.label_2.setText("Файл " + str2 + " скачан")
+                self.ui.label_2.setVisible(True)
                 #return 1
             except Exception as ex:
                 print(ex)
+                self.ui.label_2.setText("Файл не скачан")
+                self.ui.label_2.setVisible(True)
                 #return 0
 
-            self.ui.label_2.setVisible(False)
+            
         else:
+            self.ui.label_2.setText("Файл не выбран.")
             self.ui.label_2.setVisible(True)
 
     
@@ -175,7 +214,7 @@ class mywindow(QtWidgets.QMainWindow):
         print('choice_mail_box for ', self.printer)
         try:
             if self.printer == 1:
-                mail_box_num = driver.find_element(By.NAME, "list{}".format(num)).click()
+                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(num)).click()
             if self.printer == 2:
                 mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
             return 1
