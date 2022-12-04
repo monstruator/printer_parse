@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>729</width>
-    <height>553</height>
+    <width>658</width>
+    <height>451</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -178,7 +178,7 @@
      <string>удалять в почтовом ящике</string>
     </property>
     <property name="checked">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QCheckBox" name="checkBox_2">
@@ -194,7 +194,7 @@
      <string>удалять tif при конвертировании</string>
     </property>
     <property name="checked">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QCheckBox" name="checkBox_3">
@@ -210,7 +210,7 @@
      <string>конвертировать в pdf</string>
     </property>
     <property name="checked">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QLabel" name="label_4">
@@ -232,7 +232,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>729</width>
+     <width>658</width>
      <height>22</height>
     </rect>
    </property>
