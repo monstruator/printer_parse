@@ -25,7 +25,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.setEnabled(True)
-        MainWindow.resize(729, 553)
+        MainWindow.resize(658, 451)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.pushButton = QtWidgets.QPushButton(self.centralwidget)
@@ -73,22 +73,33 @@ class Ui_MainWindow(object):
         self.radioButton_2.setObjectName("radioButton_2")
         self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
         self.checkBox.setGeometry(QtCore.QRect(460, 30, 221, 20))
+        self.checkBox.setChecked(False)
         self.checkBox.setObjectName("checkBox")
-        
         self.checkBox_2 = QtWidgets.QCheckBox(self.centralwidget)
         self.checkBox_2.setGeometry(QtCore.QRect(460, 90, 201, 18))
+        self.checkBox_2.setChecked(False)
         self.checkBox_2.setObjectName("checkBox_2")
-        
         self.checkBox_3 = QtWidgets.QCheckBox(self.centralwidget)
         self.checkBox_3.setGeometry(QtCore.QRect(460, 60, 161, 18))
-        
+        self.checkBox_3.setChecked(False)
         self.checkBox_3.setObjectName("checkBox_3")
         self.label_4 = QtWidgets.QLabel(self.centralwidget)
         self.label_4.setGeometry(QtCore.QRect(590, 150, 81, 16))
         self.label_4.setObjectName("label_4")
+        self.lineEdit = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit.setGeometry(QtCore.QRect(500, 370, 61, 21))
+        self.lineEdit.setInputMethodHints(QtCore.Qt.ImhPreferNumbers)
+        self.lineEdit.setInputMask("")
+        self.lineEdit.setObjectName("lineEdit")
+        self.pushButton_4 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_4.setGeometry(QtCore.QRect(570, 370, 75, 23))
+        self.pushButton_4.setObjectName("pushButton_4")
+        self.label_5 = QtWidgets.QLabel(self.centralwidget)
+        self.label_5.setGeometry(QtCore.QRect(500, 350, 141, 16))
+        self.label_5.setObjectName("label_5")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 729, 22))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 658, 22))
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
@@ -121,6 +132,8 @@ class Ui_MainWindow(object):
         self.checkBox_2.setText(_translate("MainWindow", "удалять tif при конвертировании"))
         self.checkBox_3.setText(_translate("MainWindow", "конвертировать в pdf"))
         self.label_4.setText(_translate("MainWindow", "ориентация"))
+        self.pushButton_4.setText(_translate("MainWindow", "Сохранить"))
+        self.label_5.setText(_translate("MainWindow", "Номер почтового ящика"))
 
 
 
@@ -149,7 +162,6 @@ def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 
         if rotate_img == 0:
             outPDF = canvas.Canvas(out, pageCompression=1, pagesize=(width, height), bottomup=1)
         
-
         for page in range(img.n_frames):
             img.seek(page)
             if rotate_img == 1:
@@ -183,10 +195,12 @@ class mywindow(QtWidgets.QMainWindow):
     n_file = 0 #номер файла на мечать
     current_file_name = ''
     vert = 1 #ориентация выходного документа
-    del_in_mail = 1
-    del_tif = 1
-    convert_to_tif = 1
+    del_in_mail = 1 #удалять файл после скачивания
+    del_tif = 1 #удалять tif при конвертации
+    convert_to_tif = 1 #конвертировать в pdf
+    doc_dir = "D:\Pavel" #куда сохранять файлы
     ip = 'http://192.168.0.128/'
+    n_box_mail = 1 #номер почтового ящика
     
     printers = [
         {'url' : 'scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
@@ -211,12 +225,14 @@ class mywindow(QtWidgets.QMainWindow):
         # self.ui.lineEdit.resize(60, 30)
         # self.ui.lineEdit.setFont(QtGui.QFont('SansSerif', 14))
         # self.ui.lineEdit.setMaxLength(3)
-
+    
+        self.readConfig() #читаем конфиг и устанавливаем галочки
+    
         options = webdriver.ChromeOptions() 
         prefs = {"download.default_directory" : "D:\Pavel"}
         options.add_experimental_option("prefs",prefs)
         #--headless--headless--headless
-        options.add_argument("--headless")
+        #options.add_argument("--headless")
 
         self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
         self.driver.set_page_load_timeout(5)
@@ -224,6 +240,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.pushButton.clicked.connect(self.btnClicked)
         self.ui.pushButton_2.clicked.connect(self.button_update)
         self.ui.pushButton_3.clicked.connect(self.load_file)
+        self.ui.pushButton_4.clicked.connect(self.mail_update)
         self.ui.tableWidget.cellClicked.connect(self.tab_click)
         self.ui.radioButton.toggled.connect(self.onClickedHorz)
         self.ui.radioButton_2.toggled.connect(self.onClickedVert)
@@ -235,6 +252,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.tableWidget.setColumnCount(4)
         self.ui.label_2.setVisible(False)
         self.ui.label_3.setVisible(False)
+        self.ui.lineEdit.setText(str(self.n_box_mail))
 
         count1 = 0
         for pr in self.printers:
@@ -253,7 +271,7 @@ class mywindow(QtWidgets.QMainWindow):
                 print('Не обнаружен принтер ', pr['name'])
                 self.ui.label.setText("Принтер не обнаружен ")
          
-        self.readConfig() #читаем конфиг и устанавливаем галочки
+        
         if self.del_in_mail == 1:
             self.ui.checkBox.setChecked(True)
         if self.del_tif == 1:
@@ -262,6 +280,33 @@ class mywindow(QtWidgets.QMainWindow):
             self.ui.checkBox_3.setChecked(True)
             
     #-----------------------------------------------------------------------------
+    def mail_update(self):
+        shost = self.ui.lineEdit.text()
+        print(shost)
+        try:
+            temp = int(shost)
+            if temp > 0 and temp < 1000:
+                self.n_box_mail = temp
+                self.crudConfig()
+                
+                self.driver.refresh()
+                    
+                iframe = self.driver.find_element(By.NAME,"NF")
+                self.driver.switch_to.frame(iframe)
+                self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+                self.driver.switch_to.default_content()
+                iframe1 = self.driver.find_element(By.NAME,"RF")
+                self.driver.switch_to.frame(iframe1)
+                #self.connect_to_printer(self.printer)
+                self.choice_mail_box()
+                self.update_file_list()
+            else:
+                self.ui.lineEdit.clear()
+        except:
+            print("Введено не число")
+            self.ui.lineEdit.clear()
+            
+            
     def crudConfig(self):
         path = "settings.ini"
         if not os.path.exists(path):
@@ -273,6 +318,8 @@ class mywindow(QtWidgets.QMainWindow):
         config.set("Settings", "del_tif", str(self.del_tif))
         config.set("Settings", "convert_to_tif", str(self.convert_to_tif))
         config.set("Settings", "ip", str(self.ip)) 
+        config.set("Settings", "doc_dir", self.doc_dir)
+        config.set("Settings", "n_box_mail", str(self.n_box_mail))
 
         with open(path, "w") as config_file:
             config.write(config_file)
@@ -285,6 +332,8 @@ class mywindow(QtWidgets.QMainWindow):
         config.set("Settings", "del_tif", str(self.del_tif))
         config.set("Settings", "convert_to_tif", str(self.convert_to_tif))
         config.set("Settings", "ip", str(self.ip))
+        config.set("Settings", "doc_dir", self.doc_dir)
+        config.set("Settings", "n_box_mail", str(self.n_box_mail))
         
         with open(path, "w") as config_file:
             config.write(config_file)
@@ -300,6 +349,9 @@ class mywindow(QtWidgets.QMainWindow):
         self.del_tif = int(config.get("Settings", "del_tif"))
         self.convert_to_tif = int(config.get("Settings", "convert_to_tif"))
         self.ip = config.get("Settings", "ip")
+        self.doc_dir = config.get("Settings", "doc_dir")
+        self.n_box_mail = int(config.get("Settings", "n_box_mail"))
+        
         print("read ", self.del_in_mail, self.del_tif, self.convert_to_tif, self.ip)
         
     def changeTitle(self, state):
@@ -333,7 +385,7 @@ class mywindow(QtWidgets.QMainWindow):
             print('Vert')   
             self.vert = 1
     
-    def btnClicked(self): #подключиться к принтреру
+    def btnClicked(self): #подключиться к принтеру
         count1 = 0
         for pr in self.printers:
             print('Поиск принтера ', pr['name'])
@@ -523,8 +575,12 @@ class mywindow(QtWidgets.QMainWindow):
         print('choice_mail_box for ', self.printer)
         try:
             if self.printer == 1:
-                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(num)).click()
+                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(self.n_box_mail)).click()
             if self.printer == 2:
+                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").click()
+                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").clear()
+                time.sleep(1)
+                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").send_keys(self.n_box_mail)
                 mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
             return 1
         except Exception as ex:
