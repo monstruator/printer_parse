@@ -1,7 +1,8 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
+#from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QTableWidgetItem
-from wind import Ui_MainWindow  # импорт нашего сгенерированного файла
+#from wind import Ui_MainWindow  # импорт нашего сгенерированного файла
 #from screeninfo import get_monitors
 import sys
 from selenium import webdriver
@@ -11,9 +12,164 @@ import time
 import os
 import glob
 import configparser
+#---------------------------------------------------------------
+from reportlab.pdfgen import canvas
+import reportlab
+from reportlab.lib.pagesizes import letter
+import PIL
+from PIL import Image
+import sys
 #----------------------------------------------------------------- 
-from tif_to_pdf2 import convert_with_auto_rotate
+#from tif_to_pdf2 import convert_with_auto_rotate
+class Ui_MainWindow(object):
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.setEnabled(True)
+        MainWindow.resize(729, 553)
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.pushButton = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton.setGeometry(QtCore.QRect(20, 362, 161, 41))
+        self.pushButton.setObjectName("pushButton")
+        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label.setGeometry(QtCore.QRect(30, 5, 411, 31))
+        font = QtGui.QFont()
+        font.setPointSize(16)
+        self.label.setFont(font)
+        self.label.setObjectName("label")
+        self.pushButton_2 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_2.setGeometry(QtCore.QRect(210, 360, 171, 41))
+        self.pushButton_2.setObjectName("pushButton_2")
+        self.pushButton_3 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_3.setGeometry(QtCore.QRect(470, 240, 171, 41))
+        self.pushButton_3.setObjectName("pushButton_3")
+        self.tableWidget = QtWidgets.QTableWidget(self.centralwidget)
+        self.tableWidget.setGeometry(QtCore.QRect(20, 50, 411, 271))
+        self.tableWidget.setObjectName("tableWidget")
+        self.tableWidget.setColumnCount(4)
+        self.tableWidget.setRowCount(0)
+        item = QtWidgets.QTableWidgetItem()
+        self.tableWidget.setHorizontalHeaderItem(0, item)
+        item = QtWidgets.QTableWidgetItem()
+        self.tableWidget.setHorizontalHeaderItem(1, item)
+        item = QtWidgets.QTableWidgetItem()
+        self.tableWidget.setHorizontalHeaderItem(2, item)
+        item = QtWidgets.QTableWidgetItem()
+        self.tableWidget.setHorizontalHeaderItem(3, item)
+        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2.setEnabled(True)
+        self.label_2.setGeometry(QtCore.QRect(490, 300, 141, 20))
+        self.label_2.setObjectName("label_2")
+        self.label_3 = QtWidgets.QLabel(self.centralwidget)
+        self.label_3.setEnabled(True)
+        self.label_3.setGeometry(QtCore.QRect(230, 320, 121, 20))
+        self.label_3.setObjectName("label_3")
+        self.radioButton = QtWidgets.QRadioButton(self.centralwidget)
+        self.radioButton.setGeometry(QtCore.QRect(460, 160, 101, 18))
+        self.radioButton.setObjectName("radioButton")
+        self.radioButton_2 = QtWidgets.QRadioButton(self.centralwidget)
+        self.radioButton_2.setGeometry(QtCore.QRect(460, 130, 101, 18))
+        self.radioButton_2.setChecked(True)
+        self.radioButton_2.setObjectName("radioButton_2")
+        self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox.setGeometry(QtCore.QRect(460, 30, 221, 20))
+        self.checkBox.setObjectName("checkBox")
+        
+        self.checkBox_2 = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox_2.setGeometry(QtCore.QRect(460, 90, 201, 18))
+        self.checkBox_2.setObjectName("checkBox_2")
+        
+        self.checkBox_3 = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox_3.setGeometry(QtCore.QRect(460, 60, 161, 18))
+        
+        self.checkBox_3.setObjectName("checkBox_3")
+        self.label_4 = QtWidgets.QLabel(self.centralwidget)
+        self.label_4.setGeometry(QtCore.QRect(590, 150, 81, 16))
+        self.label_4.setObjectName("label_4")
+        MainWindow.setCentralWidget(self.centralwidget)
+        self.menubar = QtWidgets.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 729, 22))
+        self.menubar.setObjectName("menubar")
+        MainWindow.setMenuBar(self.menubar)
+        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        self.statusbar.setObjectName("statusbar")
+        MainWindow.setStatusBar(self.statusbar)
 
+        self.retranslateUi(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.pushButton.setText(_translate("MainWindow", "Подключиться к принтеру"))
+        self.label.setText(_translate("MainWindow", "TextLabel"))
+        self.pushButton_2.setText(_translate("MainWindow", "Обновить список файлов"))
+        self.pushButton_3.setText(_translate("MainWindow", "Скачать файл"))
+        item = self.tableWidget.horizontalHeaderItem(0)
+        item.setText(_translate("MainWindow", "номер"))
+        item = self.tableWidget.horizontalHeaderItem(1)
+        item.setText(_translate("MainWindow", "имя"))
+        item = self.tableWidget.horizontalHeaderItem(2)
+        item.setText(_translate("MainWindow", "дата"))
+        item = self.tableWidget.horizontalHeaderItem(3)
+        item.setText(_translate("MainWindow", "время"))
+        self.label_2.setText(_translate("MainWindow", "Файл не выбран"))
+        self.label_3.setText(_translate("MainWindow", "Файлы не найдены"))
+        self.radioButton.setText(_translate("MainWindow", "Горизонтальная"))
+        self.radioButton_2.setText(_translate("MainWindow", "Вертикальная"))
+        self.checkBox.setText(_translate("MainWindow", "удалять в почтовом ящике"))
+        self.checkBox_2.setText(_translate("MainWindow", "удалять tif при конвертировании"))
+        self.checkBox_3.setText(_translate("MainWindow", "конвертировать в pdf"))
+        self.label_4.setText(_translate("MainWindow", "ориентация"))
+
+
+
+def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 (вертикальная ориентация картинки)
+    try: 
+        print(tiff)
+        if vert != 0 and vert != 1:
+            vert = 0
+        
+        img = PIL.Image.open(tiff)
+        width, height = img.size
+        
+        print('размеры файла для конвертации', width, height)
+        scale = width / height
+        scale = scale * 0.9
+
+        if (vert == 1 and scale > 1) or (vert == 0 and scale < 1):
+            rotate_img = 1
+        else:
+            rotate_img = 0             
+
+        out = tiff.replace('.tif','.pdf')
+        
+        if rotate_img == 1:
+            outPDF = canvas.Canvas(out, pageCompression=1, pagesize=(height, width), bottomup=1)
+        if rotate_img == 0:
+            outPDF = canvas.Canvas(out, pageCompression=1, pagesize=(width, height), bottomup=1)
+        
+
+        for page in range(img.n_frames):
+            img.seek(page)
+            if rotate_img == 1:
+                rotate_image = img.rotate(90, expand=True)
+                imgPage = reportlab.lib.utils.ImageReader(rotate_image)
+                outPDF.drawImage(imgPage, 0, 0,  height, width)
+            if rotate_img == 0:
+                imgPage = reportlab.lib.utils.ImageReader(img)
+                outPDF.drawImage(imgPage, 0, 0,  width, height)    
+           
+            if page < img.n_frames:
+                outPDF.showPage()
+
+        outPDF.save()
+        img.close()
+        return 1
+
+    except Exception as ex:
+        print(ex)
+        return 0
 
 class BrowserHandler(QtCore.QObject):
     running = False
@@ -109,7 +265,7 @@ class mywindow(QtWidgets.QMainWindow):
     def crudConfig(self):
         path = "settings.ini"
         if not os.path.exists(path):
-            self.createConfig(path)
+            self.createConfig()
         config = configparser.ConfigParser()
         config.read(path)
     
@@ -136,7 +292,7 @@ class mywindow(QtWidgets.QMainWindow):
     def readConfig(self):
         path = "settings.ini"
         if not os.path.exists(path):
-            createConfig(path)
+            self.createConfig()
         config = configparser.ConfigParser()
         config.read(path)
         
@@ -278,20 +434,20 @@ class mywindow(QtWidgets.QMainWindow):
                     if self.printer == 2:
                         str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
                     check_box1 = self.driver.find_element(By.XPATH, str1).click()
-                    time.sleep(3)
+                    time.sleep(2) #3
                     button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/div/input").click()
                     
-                    time.sleep(2)
+                    time.sleep(1) #2
                     #alert = Alert(self.driver)
                     #time.sleep(2)
                     #alert.accept()
                     obj = self.driver.switch_to.alert
                     mes = obj.text
                     print(mes)
-                    time.sleep(2)
+                    time.sleep(2) #2
                     obj.accept()
                     
-                    time.sleep(1)
+                    #time.sleep(1) #1
                     self.driver.refresh()
                     
                     iframe = self.driver.find_element(By.NAME,"NF")
