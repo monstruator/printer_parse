@@ -42,7 +42,7 @@ class Ui_MainWindow(object):
         self.pushButton_2.setGeometry(QtCore.QRect(210, 360, 171, 41))
         self.pushButton_2.setObjectName("pushButton_2")
         self.pushButton_3 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_3.setGeometry(QtCore.QRect(470, 200, 171, 41))
+        self.pushButton_3.setGeometry(QtCore.QRect(470, 160, 171, 41))
         self.pushButton_3.setObjectName("pushButton_3")
         self.tableWidget = QtWidgets.QTableWidget(self.centralwidget)
         self.tableWidget.setGeometry(QtCore.QRect(20, 50, 431, 271))
@@ -51,33 +51,33 @@ class Ui_MainWindow(object):
         self.tableWidget.setRowCount(0)
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setEnabled(True)
-        self.label_2.setGeometry(QtCore.QRect(490, 260, 141, 20))
+        self.label_2.setGeometry(QtCore.QRect(490, 200, 141, 20))
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.centralwidget)
         self.label_3.setEnabled(True)
         self.label_3.setGeometry(QtCore.QRect(230, 320, 121, 20))
         self.label_3.setObjectName("label_3")
         self.radioButton = QtWidgets.QRadioButton(self.centralwidget)
-        self.radioButton.setGeometry(QtCore.QRect(460, 160, 101, 18))
+        self.radioButton.setGeometry(QtCore.QRect(460, 130, 101, 18))
         self.radioButton.setObjectName("radioButton")
         self.radioButton_2 = QtWidgets.QRadioButton(self.centralwidget)
-        self.radioButton_2.setGeometry(QtCore.QRect(460, 130, 101, 18))
+        self.radioButton_2.setGeometry(QtCore.QRect(460, 100, 101, 18))
         self.radioButton_2.setChecked(True)
         self.radioButton_2.setObjectName("radioButton_2")
         self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
-        self.checkBox.setGeometry(QtCore.QRect(460, 30, 221, 20))
+        self.checkBox.setGeometry(QtCore.QRect(460, 10, 161, 20))
         self.checkBox.setChecked(False)
         self.checkBox.setObjectName("checkBox")
         self.checkBox_2 = QtWidgets.QCheckBox(self.centralwidget)
-        self.checkBox_2.setGeometry(QtCore.QRect(460, 90, 201, 18))
+        self.checkBox_2.setGeometry(QtCore.QRect(460, 70, 191, 18))
         self.checkBox_2.setChecked(False)
         self.checkBox_2.setObjectName("checkBox_2")
         self.checkBox_3 = QtWidgets.QCheckBox(self.centralwidget)
-        self.checkBox_3.setGeometry(QtCore.QRect(460, 60, 161, 18))
+        self.checkBox_3.setGeometry(QtCore.QRect(460, 40, 161, 18))
         self.checkBox_3.setChecked(False)
         self.checkBox_3.setObjectName("checkBox_3")
         self.label_4 = QtWidgets.QLabel(self.centralwidget)
-        self.label_4.setGeometry(QtCore.QRect(590, 150, 81, 16))
+        self.label_4.setGeometry(QtCore.QRect(590, 120, 61, 16))
         self.label_4.setObjectName("label_4")
         self.lineEdit = QtWidgets.QLineEdit(self.centralwidget)
         self.lineEdit.setGeometry(QtCore.QRect(490, 320, 61, 21))
@@ -99,6 +99,10 @@ class Ui_MainWindow(object):
         self.pushButton_5 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_5.setGeometry(QtCore.QRect(614, 370, 31, 23))
         self.pushButton_5.setObjectName("pushButton_5")
+        self.progressBar = QtWidgets.QProgressBar(self.centralwidget)
+        self.progressBar.setGeometry(QtCore.QRect(467, 250, 181, 23))
+        self.progressBar.setProperty("value", 0)
+        self.progressBar.setObjectName("progressBar")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 658, 22))
@@ -131,7 +135,6 @@ class Ui_MainWindow(object):
         self.label_6.setText(_translate("MainWindow", "Папка назначения"))
         self.label_7.setText(_translate("MainWindow", "TextLabel"))
         self.pushButton_5.setText(_translate("MainWindow", "..."))
-
 
 
 def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 (вертикальная ориентация картинки)
@@ -215,7 +218,8 @@ class mywindow(QtWidgets.QMainWindow):
         
         self.trayIcon = QSystemTrayIcon(QIcon('free-icon-printer.png'))
         self.trayIcon.setToolTip('Обзор сканера')
-
+        self.trayIcon.activated.connect(self.systemIcon)
+        
         show_action = QAction("Показать", self)
         quit_action = QAction("Выход", self)
         hide_action = QAction("Скрыть", self)
@@ -284,6 +288,10 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label_7.setText(self.doc_dir)
             
     #-----------------------------------------------------------------------------
+    def systemIcon(self, reason):
+        if reason == 3:
+            self.show()
+
     def getDirectory(self):
         dirlist = QFileDialog.getExistingDirectory(self,"Выбрать папку",".")
         #self.plainTextEdit.appendHtml("<br>Выбрали папку: <b>{}</b>".format(dirlist))
