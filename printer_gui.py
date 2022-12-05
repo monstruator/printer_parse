@@ -50,7 +50,7 @@ class Ui_MainWindow(object):
         self.tableWidget.setRowCount(0)
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setEnabled(True)
-        self.label_2.setGeometry(QtCore.QRect(490, 200, 141, 20))
+        self.label_2.setGeometry(QtCore.QRect(470, 230, 170, 20))
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.centralwidget)
         self.label_3.setEnabled(True)
@@ -197,11 +197,12 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         {'url' : 'prop.htm', 'name' : 'Xerox WorkCentre 1xx'}
     ]
     
-    def __init__(self, doc_dir):
+    def __init__(self, doc_dir, ip):
         super(BrowserHandler, self).__init__() #
         print('start thread ', doc_dir)
         try:
             print('run')
+            self.ip = ip
             self.doc_dir = doc_dir
             options = webdriver.ChromeOptions() 
             prefs = {"download.default_directory" : self.doc_dir}
@@ -211,37 +212,36 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
 
             self.driver = webdriver.Chrome(chrome_options=options)
             self.driver.set_page_load_timeout(5)
-           
-            count1 = 0
-            for pr in self.printers:
-                print('Поиск принтера ', pr['name'])
-                res = self.connect_to_printer(pr)
-                count1 = count1 + 1
-                print('count ', count1)
-                
-                if res == 1:
-                    self.str1 = pr['name']
-                    self.printer = count1
-                    self.choice_mail_box()
-                    self.list_files()
-                    break
-                else:
-                    print('Не обнаружен принтер ', pr['name'])
-                    self.str1 = "Принтер не обнаружен"
-            
-            
+  
         except Exception as ex:
             print(ex)
     
-    def run(self):
-        for i in range(0,10):
-            self.toProgressBar.emit(i*10)
-            QtCore.QThread.msleep(100)     
-            print(i)
-        print(self.data_files)        
-        self.toInit.emit(self.str1, self.data_files)
-        self.toProgressBar.emit(55)
+    def run(self):      
+        print("IP=",self.ip)
+        self.toProgressBar.emit(0)
+        count1 = 0
+        for pr in self.printers:
+            print('Поиск принтера ', pr['name'])
+            res = self.connect_to_printer(pr)
+            count1 = count1 + 1
+            print('count ', count1)
             
+            if res == 1:
+                self.toProgressBar.emit(30)
+                self.str1 = pr['name']
+                self.printer = count1
+                self.choice_mail_box()
+                self.toProgressBar.emit(40)
+                self.list_files()
+                break
+            else:
+                print('Не обнаружен принтер ', pr['name'])
+                self.str1 = "Принтер не обнаружен"
+        
+        self.toProgressBar.emit(100)        
+        self.toInit.emit(self.str1, self.data_files)
+
+        
     def polling_start(self):
         for i in range(0,10):
             self.toProgressBar.emit(i*10)
@@ -290,8 +290,12 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             if self.printer == 2:
                 l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
             
+            self.toProgressBar.emit(50)
+            count = 0
             for el in l:
-                 if len(el.text) != 0:
+                self.toProgressBar.emit(50 + 50*count/len(l))
+                count = count + 1
+                if len(el.text) != 0:
                     if 'Документ номер Имя документа' not in el.text:
                         #print(el.text)
                         self.data_files.append(el.text)     
@@ -299,7 +303,28 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             print(ex)
             return None
             
-            
+    def update_file(self, n_mail_box):
+        self.n_box_mail = n_mail_box
+        self.toProgressBar.emit(0)
+        self.driver.refresh()
+        self.toProgressBar.emit(10)
+        iframe = self.driver.find_element(By.NAME,"NF")
+        self.driver.switch_to.frame(iframe)
+        self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+        self.toProgressBar.emit(30)
+        self.driver.switch_to.default_content()
+        iframe1 = self.driver.find_element(By.NAME,"RF")
+        self.driver.switch_to.frame(iframe1)
+        self.toProgressBar.emit(40)
+        #self.connect_to_printer(self.printer)
+        self.choice_mail_box()
+        self.list_files()
+        
+        self.toInit.emit(self.str1, self.data_files)
+        self.toProgressBar.emit(100)
+   
+        
+        
 #--------------------------------M Y W I N D O W----------------------
 class mywindow(QtWidgets.QMainWindow):
     printer = 0
@@ -312,13 +337,17 @@ class mywindow(QtWidgets.QMainWindow):
     del_tif = 1 #удалять tif при конвертации
     convert_to_tif = 1 #конвертировать в pdf
     doc_dir = "D:\Pavel\Download" #куда сохранять файлы
+    ip = 'http://192.168.0.128/'
     # 
     
     trayIcon = None
     my_dir = None
 
-    emit_start =  QtCore.pyqtSignal()
-
+    emit_start = QtCore.pyqtSignal()
+    emit_connect = QtCore.pyqtSignal()
+    emit_update = QtCore.pyqtSignal(int)
+    emit_mail_update = QtCore.pyqtSignal()
+    
     def __init__(self):
         super(mywindow, self).__init__()
         self.ui = Ui_MainWindow()
@@ -359,7 +388,9 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.checkBox_3.stateChanged.connect(self.changeTitle_3)
         
         self.ui.tableWidget.setColumnCount(4)
-        self.ui.label_2.setVisible(False)
+        #self.ui.label_2.setVisible(False)
+        self.ui.label_2.setText("Поиск принтера...")
+        self.ui.label.setText("Поиск принтера...")
         self.ui.label_3.setVisible(False)
         self.ui.lineEdit.setText(str(self.n_box_mail))          
          
@@ -372,11 +403,10 @@ class mywindow(QtWidgets.QMainWindow):
             
         self.ui.label_7.setText(self.doc_dir)
         
-
         # create thread
         self.thread = QtCore.QThread()
         # create object which will be moved to another thread
-        self.browserHandler = BrowserHandler(self.doc_dir)
+        self.browserHandler = BrowserHandler(self.doc_dir, self.ip)
         # move object to another thread
         self.browserHandler.moveToThread(self.thread)
         # after that, we can connect signals from this object to slot in GUI thread
@@ -386,17 +416,40 @@ class mywindow(QtWidgets.QMainWindow):
         self.thread.started.connect(self.browserHandler.run)
         # start thread
         self.thread.start()
+        self.dis_gui()
+        #-----------------
         self.emit_start.connect(self.browserHandler.polling_start)
+        self.emit_connect.connect(self.browserHandler.run)
+        self.emit_update.connect(self.browserHandler.update_file)
             
     #-----------------------------------------------------------------------------
     @QtCore.pyqtSlot(int)
     def inProgressBar(self, dig):
         self.ui.progressBar.setValue(dig)
+        if dig == 100:
+            self.ui.label_2.setText("")
         
     @QtCore.pyqtSlot(str, object)
     def initComplete(self, lab, listFiles):
         print('receive init')
-        
+        self.ui.label.setText(lab)
+        self.data_files = listFiles
+        self.update_file_list()
+        self.en_gui()
+    
+    def dis_gui(self):
+        self.ui.pushButton.setEnabled(False)    
+        self.ui.pushButton_2.setEnabled(False)    
+        self.ui.pushButton_3.setEnabled(False) 
+        self.ui.pushButton_4.setEnabled(False) 
+        self.ui.pushButton_5.setEnabled(False) 
+
+    def en_gui(self):
+        self.ui.pushButton_2.setEnabled(True)    
+        self.ui.pushButton_3.setEnabled(True)
+        self.ui.pushButton_4.setEnabled(True)
+        self.ui.pushButton_5.setEnabled(True)
+        self.ui.pushButton.setEnabled(True)
     
     def systemIcon(self, reason):
         if reason == 3:
@@ -413,28 +466,31 @@ class mywindow(QtWidgets.QMainWindow):
         
         self.ui.label_7.setText(self.doc_dir)
         self.crudConfig()
-        
-        self.driver.close()
-        
-        options = webdriver.ChromeOptions() 
-        prefs = {"download.default_directory" : self.doc_dir}
-        options.add_experimental_option("prefs",prefs)
-        #--headless--headless--headless
-        options.add_argument("--headless")
 
-        self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
-        self.driver.set_page_load_timeout(5)
+        self.dis_gui()
         
-        print('Поиск принтера ', self.printers[self.printer-1]['name'])
-        res = self.connect_to_printer(self.printers[self.printer-1])
+        self.ui.label.setText("Перезапустите программу")
+        # self.driver.close()
         
-        if res == 1:
-            self.ui.label.setText(self.printers[self.printer-1]['name'])
-            self.choice_mail_box()
-            self.update_file_list()
-        else:
-            print('Не обнаружен принтер ', self.printers[self.printer-1]['name'])
-            self.ui.label.setText("Принтер не обнаружен ")
+        # options = webdriver.ChromeOptions() 
+        # prefs = {"download.default_directory" : self.doc_dir}
+        # options.add_experimental_option("prefs",prefs)
+        # #--headless--headless--headless
+        # options.add_argument("--headless")
+
+        # self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
+        # self.driver.set_page_load_timeout(5)
+        
+        # print('Поиск принтера ', self.printers[self.printer-1]['name'])
+        # res = self.connect_to_printer(self.printers[self.printer-1])
+        
+        # if res == 1:
+            # self.ui.label.setText(self.printers[self.printer-1]['name'])
+            # self.choice_mail_box()
+            # self.update_file_list()
+        # else:
+            # print('Не обнаружен принтер ', self.printers[self.printer-1]['name'])
+            # self.ui.label.setText("Принтер не обнаружен ")
         
         
     def closeEvent(self, event):
@@ -450,31 +506,22 @@ class mywindow(QtWidgets.QMainWindow):
 
     def mail_update(self):
         shost = self.ui.lineEdit.text()
-        print(shost)
         try:
             temp = int(shost)
             if temp > 0 and temp < 1000:
                 self.n_box_mail = temp
                 self.crudConfig()
-                
-                self.driver.refresh()
-                    
-                iframe = self.driver.find_element(By.NAME,"NF")
-                self.driver.switch_to.frame(iframe)
-                self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
-                self.driver.switch_to.default_content()
-                iframe1 = self.driver.find_element(By.NAME,"RF")
-                self.driver.switch_to.frame(iframe1)
-                #self.connect_to_printer(self.printer)
-                self.choice_mail_box()
-                self.update_file_list()
+                self.ui.tableWidget.clear()
+                self.ui.label_2.setText("Обновление номера почтового ящика...")
+                self.emit_update.emit(self.n_box_mail)
+                self.dis_gui()
+                #-----------------------
             else:
                 self.ui.lineEdit.clear()
         except:
             print("Введено не число")
             self.ui.lineEdit.clear()
-            
-            
+                       
     def crudConfig(self):
         path = self.my_dir + "/settings.ini"
         if not os.path.exists(path):
@@ -528,7 +575,7 @@ class mywindow(QtWidgets.QMainWindow):
         else:
             self.del_in_mail = 0
         self.crudConfig()
-        self.emit_start.emit()
+        #self.emit_start.emit()
     
     def changeTitle_2(self, state):
         if state == Qt.Checked:
@@ -536,8 +583,7 @@ class mywindow(QtWidgets.QMainWindow):
         else:
             self.del_tif = 0
         self.crudConfig()
-        
-        
+                
     def changeTitle_3(self, state):
         if state == Qt.Checked:
             self.convert_to_tif = 1
@@ -556,42 +602,24 @@ class mywindow(QtWidgets.QMainWindow):
             self.vert = 1
     
     def btnClicked(self): #подключиться к принтеру
-        count1 = 0
-        for pr in self.printers:
-            print('Поиск принтера ', pr['name'])
-            res = self.connect_to_printer(pr)
-            count1 = count1 + 1
-            print('count ', count1)
-            
-            if res == 1:
-                self.ui.label.setText(pr['name'])
-                self.printer = count1
-                self.choice_mail_box()
-                self.update_file_list()
-                break
-            else:
-                print('Не обнаружен принтер ', pr['name'])
-                self.ui.label.setText("Принтер не обнаружен ")
-
+        self.ui.tableWidget.clear()
+        self.ui.label.setText('Поиск принтера...')
+        self.ui.label_2.setText("Поиск принтера...")
+        self.emit_connect.emit()
+        self.dis_gui()
+        
     def button_update(self):
-        self.driver.refresh()
-                
-        iframe = self.driver.find_element(By.NAME,"NF")
-        self.driver.switch_to.frame(iframe)
-        self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
-        self.driver.switch_to.default_content()
-        iframe1 = self.driver.find_element(By.NAME,"RF")
-        self.driver.switch_to.frame(iframe1)
-        #self.connect_to_printer(self.printer)
-        self.choice_mail_box()
-        self.update_file_list()
+        self.ui.tableWidget.clear()
+        self.ui.label_2.setText("Обновление списка файлов...")
+        self.emit_update.emit(self.n_box_mail)
+        self.dis_gui()
         
     
     def update_file_list(self):    
         print('update_file_list')
         self.ui.tableWidget.clear()
         self.ui.tableWidget.setHorizontalHeaderLabels(['номер','имя','дата','время'])
-        self.list_files()    
+        #self.list_files()    
         if len(self.data_files) > 0:
             self.ui.tableWidget.setRowCount(len(self.data_files))
             row = 0
