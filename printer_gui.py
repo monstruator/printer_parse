@@ -1,5 +1,4 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
-#from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QSystemTrayIcon, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QFileDialog
@@ -183,12 +182,126 @@ def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 
         print(ex)
         return 0
 
-class BrowserHandler(QtCore.QObject):
+class BrowserHandler(QtCore.QObject): #поток для длительных операций
     running = False
-    newText = QtCore.pyqtSignal(str, object)
- 
-class mywindow(QtWidgets.QMainWindow):
+    toProgressBar = QtCore.pyqtSignal(int)
+    toInit = QtCore.pyqtSignal(str, object)
+    driver = None    
+    doc_dir = None
+    str1 = '' #для передачи в главное окно
+    n_box_mail = 1 #номер почтового ящика
+    data_files = []
+    ip = 'http://192.168.0.128/'
+    printers = [
+        {'url' : 'scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
+        {'url' : 'prop.htm', 'name' : 'Xerox WorkCentre 1xx'}
+    ]
     
+    def __init__(self, doc_dir):
+        super(BrowserHandler, self).__init__() #
+        print('start thread ', doc_dir)
+        try:
+            print('run')
+            self.doc_dir = doc_dir
+            options = webdriver.ChromeOptions() 
+            prefs = {"download.default_directory" : self.doc_dir}
+            options.add_experimental_option("prefs",prefs)
+            #--headless--headless--headless
+            #options.add_argument("--headless")
+
+            self.driver = webdriver.Chrome(chrome_options=options)
+            self.driver.set_page_load_timeout(5)
+           
+            count1 = 0
+            for pr in self.printers:
+                print('Поиск принтера ', pr['name'])
+                res = self.connect_to_printer(pr)
+                count1 = count1 + 1
+                print('count ', count1)
+                
+                if res == 1:
+                    self.str1 = pr['name']
+                    self.printer = count1
+                    self.choice_mail_box()
+                    self.list_files()
+                    break
+                else:
+                    print('Не обнаружен принтер ', pr['name'])
+                    self.str1 = "Принтер не обнаружен"
+            
+            
+        except Exception as ex:
+            print(ex)
+    
+    def run(self):
+        for i in range(0,10):
+            self.toProgressBar.emit(i*10)
+            QtCore.QThread.msleep(100)     
+            print(i)
+        print(self.data_files)        
+        self.toInit.emit(self.str1, self.data_files)
+        self.toProgressBar.emit(55)
+            
+    def polling_start(self):
+        for i in range(0,10):
+            self.toProgressBar.emit(i*10)
+            QtCore.QThread.msleep(100)     
+            print(i)
+ 
+    def connect_to_printer(self, printer):
+        try:
+            print('START CONNECT')
+            self.driver.get(url=self.ip + printer['url'])
+            time.sleep(1) #2
+            print('search')
+            iframe = self.driver.find_element(By.NAME,"NF")
+            self.driver.switch_to.frame(iframe)
+            self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+            self.driver.switch_to.default_content()
+            iframe1 = self.driver.find_element(By.NAME,"RF")
+            self.driver.switch_to.frame(iframe1)
+            return 1
+        except Exception as ex:
+            print("ERROR CONNECT")
+            #print(ex)
+            return 0  
+            
+    def choice_mail_box(self):
+        print('choice_mail_box for ', self.printer)
+        try:
+            if self.printer == 1:
+                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(self.n_box_mail)).click()
+            if self.printer == 2:
+                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").click()
+                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").clear()
+                QtCore.QThread.msleep(1000)
+                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").send_keys(self.n_box_mail)
+                mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
+            return 1
+        except Exception as ex:
+            print(ex)
+            return 0
+            
+    def list_files(self):
+        self.data_files = []
+        try:
+            if self.printer == 1:
+                l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
+            if self.printer == 2:
+                l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
+            
+            for el in l:
+                 if len(el.text) != 0:
+                    if 'Документ номер Имя документа' not in el.text:
+                        #print(el.text)
+                        self.data_files.append(el.text)     
+        except Exception as ex:
+            print(ex)
+            return None
+            
+            
+#--------------------------------M Y W I N D O W----------------------
+class mywindow(QtWidgets.QMainWindow):
     printer = 0
     driver = None
     data_files = []
@@ -199,15 +312,12 @@ class mywindow(QtWidgets.QMainWindow):
     del_tif = 1 #удалять tif при конвертации
     convert_to_tif = 1 #конвертировать в pdf
     doc_dir = "D:\Pavel\Download" #куда сохранять файлы
-    ip = 'http://192.168.0.128/'
-    n_box_mail = 1 #номер почтового ящика
+    # 
+    
     trayIcon = None
     my_dir = None
-    
-    printers = [
-        {'url' : 'scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
-        {'url' : 'prop.htm', 'name' : 'Xerox WorkCentre 1xx'}
-    ]
+
+    emit_start =  QtCore.pyqtSignal()
 
     def __init__(self):
         super(mywindow, self).__init__()
@@ -234,15 +344,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.trayIcon.show()
 
         self.readConfig() #читаем конфиг и устанавливаем галочки
-    
-        options = webdriver.ChromeOptions() 
-        prefs = {"download.default_directory" : self.doc_dir}
-        options.add_experimental_option("prefs",prefs)
-        #--headless--headless--headless
-        options.add_argument("--headless")
 
-        self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
-        self.driver.set_page_load_timeout(5)
         # подключение клик-сигнал к слоту btnClicked
         self.ui.pushButton.clicked.connect(self.btnClicked)
         self.ui.pushButton_2.clicked.connect(self.button_update)
@@ -259,24 +361,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.tableWidget.setColumnCount(4)
         self.ui.label_2.setVisible(False)
         self.ui.label_3.setVisible(False)
-        self.ui.lineEdit.setText(str(self.n_box_mail))
-
-        count1 = 0
-        for pr in self.printers:
-            print('Поиск принтера ', pr['name'])
-            res = self.connect_to_printer(pr)
-            count1 = count1 + 1
-            print('count ', count1)
-            
-            if res == 1:
-                self.ui.label.setText(pr['name'])
-                self.printer = count1
-                self.choice_mail_box()
-                self.update_file_list()
-                break
-            else:
-                print('Не обнаружен принтер ', pr['name'])
-                self.ui.label.setText("Принтер не обнаружен ")
+        self.ui.lineEdit.setText(str(self.n_box_mail))          
          
         if self.del_in_mail == 1:
             self.ui.checkBox.setChecked(True)
@@ -286,8 +371,33 @@ class mywindow(QtWidgets.QMainWindow):
             self.ui.checkBox_3.setChecked(True)
             
         self.ui.label_7.setText(self.doc_dir)
+        
+
+        # create thread
+        self.thread = QtCore.QThread()
+        # create object which will be moved to another thread
+        self.browserHandler = BrowserHandler(self.doc_dir)
+        # move object to another thread
+        self.browserHandler.moveToThread(self.thread)
+        # after that, we can connect signals from this object to slot in GUI thread
+        self.browserHandler.toProgressBar.connect(self.inProgressBar)
+        self.browserHandler.toInit.connect(self.initComplete)
+        # connect started signal to run method of object in another thread
+        self.thread.started.connect(self.browserHandler.run)
+        # start thread
+        self.thread.start()
+        self.emit_start.connect(self.browserHandler.polling_start)
             
     #-----------------------------------------------------------------------------
+    @QtCore.pyqtSlot(int)
+    def inProgressBar(self, dig):
+        self.ui.progressBar.setValue(dig)
+        
+    @QtCore.pyqtSlot(str, object)
+    def initComplete(self, lab, listFiles):
+        print('receive init')
+        
+    
     def systemIcon(self, reason):
         if reason == 3:
             self.show()
@@ -418,6 +528,7 @@ class mywindow(QtWidgets.QMainWindow):
         else:
             self.del_in_mail = 0
         self.crudConfig()
+        self.emit_start.emit()
     
     def changeTitle_2(self, state):
         if state == Qt.Checked:
@@ -425,6 +536,7 @@ class mywindow(QtWidgets.QMainWindow):
         else:
             self.del_tif = 0
         self.crudConfig()
+        
         
     def changeTitle_3(self, state):
         if state == Qt.Checked:
@@ -613,59 +725,8 @@ class mywindow(QtWidgets.QMainWindow):
             self.ui.label_2.setText("Файл не выбран.")
             self.ui.label_2.setVisible(True)
 
-    
-    def connect_to_printer(self, printer):
-        try:
-            print('START CONNECT')
-            self.driver.get(url=self.ip + printer['url'])
-            time.sleep(1) #2
-            print('search')
-            iframe = self.driver.find_element(By.NAME,"NF")
-            self.driver.switch_to.frame(iframe)
-            self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
-            self.driver.switch_to.default_content()
-            iframe1 = self.driver.find_element(By.NAME,"RF")
-            self.driver.switch_to.frame(iframe1)
-            return 1
-        except Exception as ex:
-            print("ERROR CONNECT")
-            #print(ex)
-            return 0  
 
-    def choice_mail_box(self):
-        print('choice_mail_box for ', self.printer)
-        try:
-            if self.printer == 1:
-                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(self.n_box_mail)).click()
-            if self.printer == 2:
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").click()
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").clear()
-                time.sleep(1)
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").send_keys(self.n_box_mail)
-                mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
-            return 1
-        except Exception as ex:
-            print(ex)
-            return 0
     
-    
-    def list_files(self):
-        self.data_files = []
-        try:
-            if self.printer == 1:
-                l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
-            if self.printer == 2:
-                l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
-            
-            for el in l:
-                #print(el.text)
-                if len(el.text) != 0:
-                    if 'Документ номер Имя документа' not in el.text:
-                        #print(el.text)
-                        self.data_files.append(el.text)     
-        except Exception as ex:
-            print(ex)
-            return None
 
 
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
