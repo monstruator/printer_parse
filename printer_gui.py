@@ -1,7 +1,8 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
 #from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QSystemTrayIcon, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QFileDialog
 #from wind import Ui_MainWindow  # импорт нашего сгенерированного файла
 #from screeninfo import get_monitors
 import sys
@@ -41,24 +42,16 @@ class Ui_MainWindow(object):
         self.pushButton_2.setGeometry(QtCore.QRect(210, 360, 171, 41))
         self.pushButton_2.setObjectName("pushButton_2")
         self.pushButton_3 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_3.setGeometry(QtCore.QRect(470, 240, 171, 41))
+        self.pushButton_3.setGeometry(QtCore.QRect(470, 200, 171, 41))
         self.pushButton_3.setObjectName("pushButton_3")
         self.tableWidget = QtWidgets.QTableWidget(self.centralwidget)
-        self.tableWidget.setGeometry(QtCore.QRect(20, 50, 411, 271))
+        self.tableWidget.setGeometry(QtCore.QRect(20, 50, 431, 271))
         self.tableWidget.setObjectName("tableWidget")
-        self.tableWidget.setColumnCount(4)
+        self.tableWidget.setColumnCount(0)
         self.tableWidget.setRowCount(0)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(0, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(1, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(2, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(3, item)
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setEnabled(True)
-        self.label_2.setGeometry(QtCore.QRect(490, 300, 141, 20))
+        self.label_2.setGeometry(QtCore.QRect(490, 260, 141, 20))
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.centralwidget)
         self.label_3.setEnabled(True)
@@ -87,16 +80,25 @@ class Ui_MainWindow(object):
         self.label_4.setGeometry(QtCore.QRect(590, 150, 81, 16))
         self.label_4.setObjectName("label_4")
         self.lineEdit = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit.setGeometry(QtCore.QRect(500, 370, 61, 21))
+        self.lineEdit.setGeometry(QtCore.QRect(490, 320, 61, 21))
         self.lineEdit.setInputMethodHints(QtCore.Qt.ImhPreferNumbers)
         self.lineEdit.setInputMask("")
         self.lineEdit.setObjectName("lineEdit")
         self.pushButton_4 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_4.setGeometry(QtCore.QRect(570, 370, 75, 23))
+        self.pushButton_4.setGeometry(QtCore.QRect(560, 320, 75, 23))
         self.pushButton_4.setObjectName("pushButton_4")
         self.label_5 = QtWidgets.QLabel(self.centralwidget)
-        self.label_5.setGeometry(QtCore.QRect(500, 350, 141, 16))
+        self.label_5.setGeometry(QtCore.QRect(490, 300, 141, 16))
         self.label_5.setObjectName("label_5")
+        self.label_6 = QtWidgets.QLabel(self.centralwidget)
+        self.label_6.setGeometry(QtCore.QRect(420, 360, 101, 16))
+        self.label_6.setObjectName("label_6")
+        self.label_7 = QtWidgets.QLabel(self.centralwidget)
+        self.label_7.setGeometry(QtCore.QRect(420, 380, 171, 16))
+        self.label_7.setObjectName("label_7")
+        self.pushButton_5 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_5.setGeometry(QtCore.QRect(614, 370, 31, 23))
+        self.pushButton_5.setObjectName("pushButton_5")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 658, 22))
@@ -116,14 +118,6 @@ class Ui_MainWindow(object):
         self.label.setText(_translate("MainWindow", "TextLabel"))
         self.pushButton_2.setText(_translate("MainWindow", "Обновить список файлов"))
         self.pushButton_3.setText(_translate("MainWindow", "Скачать файл"))
-        item = self.tableWidget.horizontalHeaderItem(0)
-        item.setText(_translate("MainWindow", "номер"))
-        item = self.tableWidget.horizontalHeaderItem(1)
-        item.setText(_translate("MainWindow", "имя"))
-        item = self.tableWidget.horizontalHeaderItem(2)
-        item.setText(_translate("MainWindow", "дата"))
-        item = self.tableWidget.horizontalHeaderItem(3)
-        item.setText(_translate("MainWindow", "время"))
         self.label_2.setText(_translate("MainWindow", "Файл не выбран"))
         self.label_3.setText(_translate("MainWindow", "Файлы не найдены"))
         self.radioButton.setText(_translate("MainWindow", "Горизонтальная"))
@@ -134,6 +128,9 @@ class Ui_MainWindow(object):
         self.label_4.setText(_translate("MainWindow", "ориентация"))
         self.pushButton_4.setText(_translate("MainWindow", "Сохранить"))
         self.label_5.setText(_translate("MainWindow", "Номер почтового ящика"))
+        self.label_6.setText(_translate("MainWindow", "Папка назначения"))
+        self.label_7.setText(_translate("MainWindow", "TextLabel"))
+        self.pushButton_5.setText(_translate("MainWindow", "..."))
 
 
 
@@ -198,9 +195,11 @@ class mywindow(QtWidgets.QMainWindow):
     del_in_mail = 1 #удалять файл после скачивания
     del_tif = 1 #удалять tif при конвертации
     convert_to_tif = 1 #конвертировать в pdf
-    doc_dir = "D:\Pavel" #куда сохранять файлы
+    doc_dir = "D:\Pavel\Download" #куда сохранять файлы
     ip = 'http://192.168.0.128/'
     n_box_mail = 1 #номер почтового ящика
+    trayIcon = None
+    my_dir = None
     
     printers = [
         {'url' : 'scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
@@ -211,28 +210,32 @@ class mywindow(QtWidgets.QMainWindow):
         super(mywindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        # for m in get_monitors():
-        #     # str(m))
-        #     self.window_width = m.width/3
-        #     self.window_height = m.height/2
         
-        # self.setFixedWidth(self.window_width)
-        # self.setFixedHeight(self.window_height)
-        # self.ui.label.setGeometry(QtCore.QRect(10, 150, 300, 180)) #позиция
-        # self.ui.label.setFont(QtGui.QFont('SansSerif', 20))
+        self.my_dir = os.getcwd() #текущая директория
+        
+        self.trayIcon = QSystemTrayIcon(QIcon('free-icon-printer.png'))
+        self.trayIcon.setToolTip('Обзор сканера')
 
-        # self.ui.lineEdit.setGeometry(QtCore.QRect(30, self.window_height - 70, 90, self.window_height-10))
-        # self.ui.lineEdit.resize(60, 30)
-        # self.ui.lineEdit.setFont(QtGui.QFont('SansSerif', 14))
-        # self.ui.lineEdit.setMaxLength(3)
-    
+        show_action = QAction("Показать", self)
+        quit_action = QAction("Выход", self)
+        hide_action = QAction("Скрыть", self)
+        show_action.triggered.connect(self.show)
+        hide_action.triggered.connect(self.hide)
+        quit_action.triggered.connect(qApp.quit)
+        tray_menu = QMenu()
+        tray_menu.addAction(show_action)
+        tray_menu.addAction(hide_action)
+        tray_menu.addAction(quit_action)
+        self.trayIcon.setContextMenu(tray_menu)
+        self.trayIcon.show()
+
         self.readConfig() #читаем конфиг и устанавливаем галочки
     
         options = webdriver.ChromeOptions() 
-        prefs = {"download.default_directory" : "D:\Pavel"}
+        prefs = {"download.default_directory" : self.doc_dir}
         options.add_experimental_option("prefs",prefs)
         #--headless--headless--headless
-        #options.add_argument("--headless")
+        options.add_argument("--headless")
 
         self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
         self.driver.set_page_load_timeout(5)
@@ -241,6 +244,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.pushButton_2.clicked.connect(self.button_update)
         self.ui.pushButton_3.clicked.connect(self.load_file)
         self.ui.pushButton_4.clicked.connect(self.mail_update)
+        self.ui.pushButton_5.clicked.connect(self.getDirectory)
         self.ui.tableWidget.cellClicked.connect(self.tab_click)
         self.ui.radioButton.toggled.connect(self.onClickedHorz)
         self.ui.radioButton_2.toggled.connect(self.onClickedVert)
@@ -248,7 +252,6 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.checkBox_2.stateChanged.connect(self.changeTitle_2)
         self.ui.checkBox_3.stateChanged.connect(self.changeTitle_3)
         
-        self.ui.tableWidget.setRowCount(7)
         self.ui.tableWidget.setColumnCount(4)
         self.ui.label_2.setVisible(False)
         self.ui.label_3.setVisible(False)
@@ -271,7 +274,6 @@ class mywindow(QtWidgets.QMainWindow):
                 print('Не обнаружен принтер ', pr['name'])
                 self.ui.label.setText("Принтер не обнаружен ")
          
-        
         if self.del_in_mail == 1:
             self.ui.checkBox.setChecked(True)
         if self.del_tif == 1:
@@ -279,7 +281,55 @@ class mywindow(QtWidgets.QMainWindow):
         if self.convert_to_tif == 1:
             self.ui.checkBox_3.setChecked(True)
             
+        self.ui.label_7.setText(self.doc_dir)
+            
     #-----------------------------------------------------------------------------
+    def getDirectory(self):
+        dirlist = QFileDialog.getExistingDirectory(self,"Выбрать папку",".")
+        #self.plainTextEdit.appendHtml("<br>Выбрали папку: <b>{}</b>".format(dirlist))
+        str1 = '/'
+        str2 = '\\'
+        dirlist = dirlist.replace(str1, str2)
+        print(dirlist)
+        self.doc_dir = dirlist
+        
+        self.ui.label_7.setText(self.doc_dir)
+        self.crudConfig()
+        
+        self.driver.close()
+        
+        options = webdriver.ChromeOptions() 
+        prefs = {"download.default_directory" : self.doc_dir}
+        options.add_experimental_option("prefs",prefs)
+        #--headless--headless--headless
+        options.add_argument("--headless")
+
+        self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
+        self.driver.set_page_load_timeout(5)
+        
+        print('Поиск принтера ', self.printers[self.printer-1]['name'])
+        res = self.connect_to_printer(self.printers[self.printer-1])
+        
+        if res == 1:
+            self.ui.label.setText(self.printers[self.printer-1]['name'])
+            self.choice_mail_box()
+            self.update_file_list()
+        else:
+            print('Не обнаружен принтер ', self.printers[self.printer-1]['name'])
+            self.ui.label.setText("Принтер не обнаружен ")
+        
+        
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
+        self.trayIcon.showMessage(
+                "Обзор сканера",
+                "Я пока буду в трее",
+                QSystemTrayIcon.Information,
+                2000
+            )
+
+
     def mail_update(self):
         shost = self.ui.lineEdit.text()
         print(shost)
@@ -308,7 +358,7 @@ class mywindow(QtWidgets.QMainWindow):
             
             
     def crudConfig(self):
-        path = "settings.ini"
+        path = self.my_dir + "/settings.ini"
         if not os.path.exists(path):
             self.createConfig()
         config = configparser.ConfigParser()
@@ -325,7 +375,7 @@ class mywindow(QtWidgets.QMainWindow):
             config.write(config_file)
         
     def createConfig(self):
-        path = "settings.ini"
+        path = self.my_dir + "/settings.ini"
         config = configparser.ConfigParser()
         config.add_section("Settings")
         config.set("Settings", "del_in_mail", str(self.del_in_mail))
@@ -339,7 +389,7 @@ class mywindow(QtWidgets.QMainWindow):
             config.write(config_file)
             
     def readConfig(self):
-        path = "settings.ini"
+        path = self.my_dir + "/settings.ini"
         if not os.path.exists(path):
             self.createConfig()
         config = configparser.ConfigParser()
@@ -420,6 +470,7 @@ class mywindow(QtWidgets.QMainWindow):
     def update_file_list(self):    
         print('update_file_list')
         self.ui.tableWidget.clear()
+        self.ui.tableWidget.setHorizontalHeaderLabels(['номер','имя','дата','время'])
         self.list_files()    
         if len(self.data_files) > 0:
             self.ui.tableWidget.setRowCount(len(self.data_files))
@@ -515,6 +566,8 @@ class mywindow(QtWidgets.QMainWindow):
                 file_find = 0
                 #поиск скачанного файла
                 str2 = self.current_file_name + '.tif'
+                
+                os.chdir(self.doc_dir) #переключиться на папку с документами
                 for file in glob.glob(str2):
                     print('Нашли файл tiff', file)
                     file_find = 1
