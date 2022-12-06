@@ -141,26 +141,19 @@ def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 
         print(tiff)
         if vert != 0 and vert != 1:
             vert = 0
-        
         img = PIL.Image.open(tiff)
         width, height = img.size
-        
-        print('размеры файла для конвертации', width, height)
         scale = width / height
         scale = scale * 0.9
-
         if (vert == 1 and scale > 1) or (vert == 0 and scale < 1):
             rotate_img = 1
         else:
             rotate_img = 0             
-
         out = tiff.replace('.tif','.pdf')
-        
         if rotate_img == 1:
             outPDF = canvas.Canvas(out, pageCompression=1, pagesize=(height, width), bottomup=1)
         if rotate_img == 0:
             outPDF = canvas.Canvas(out, pageCompression=1, pagesize=(width, height), bottomup=1)
-        
         for page in range(img.n_frames):
             img.seek(page)
             if rotate_img == 1:
@@ -170,14 +163,11 @@ def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 
             if rotate_img == 0:
                 imgPage = reportlab.lib.utils.ImageReader(img)
                 outPDF.drawImage(imgPage, 0, 0,  width, height)    
-           
             if page < img.n_frames:
                 outPDF.showPage()
-
         outPDF.save()
         img.close()
         return 1
-
     except Exception as ex:
         print(ex)
         return 0
@@ -186,67 +176,69 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
     running = False
     toProgressBar = QtCore.pyqtSignal(int)
     toInit = QtCore.pyqtSignal(str, object)
+    toError = QtCore.pyqtSignal(str)
     driver = None    
     doc_dir = None
     str1 = '' #для передачи в главное окно
     n_box_mail = 1 #номер почтового ящика
     data_files = []
+    del_in_mail = 1 #удалять файл после скачивания
+    del_tif = 1 #удалять tif при конвертации
+    convert_to_tif = 1 #конвертировать в pdf
+    vert = 1 #ориентация выходного документа
     ip = 'http://192.168.0.128/'
     printers = [
         {'url' : 'scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
         {'url' : 'prop.htm', 'name' : 'Xerox WorkCentre 1xx'}
     ]
     
-    def __init__(self, doc_dir, ip):
+    def __init__(self, doc_dir, ip, n_box_mail):
         super(BrowserHandler, self).__init__() #
         print('start thread ', doc_dir)
         try:
-            print('run')
+            self.n_box_mail = n_box_mail
             self.ip = ip
             self.doc_dir = doc_dir
             options = webdriver.ChromeOptions() 
             prefs = {"download.default_directory" : self.doc_dir}
             options.add_experimental_option("prefs",prefs)
             #--headless--headless--headless
-            #options.add_argument("--headless")
-
+            options.add_argument("--headless")
             self.driver = webdriver.Chrome(chrome_options=options)
             self.driver.set_page_load_timeout(5)
-  
         except Exception as ex:
             print(ex)
-    
-    def run(self):      
-        print("IP=",self.ip)
-        self.toProgressBar.emit(0)
-        count1 = 0
-        for pr in self.printers:
-            print('Поиск принтера ', pr['name'])
-            res = self.connect_to_printer(pr)
-            count1 = count1 + 1
-            print('count ', count1)
+            self.toError.emit("Ошибка запуска драйвера")
             
-            if res == 1:
-                self.toProgressBar.emit(30)
-                self.str1 = pr['name']
-                self.printer = count1
-                self.choice_mail_box()
-                self.toProgressBar.emit(40)
-                self.list_files()
-                break
-            else:
-                print('Не обнаружен принтер ', pr['name'])
-                self.str1 = "Принтер не обнаружен"
+    
+    def run(self):
+        try:
+            print("IP=",self.ip)
+            self.toProgressBar.emit(0)
+            count1 = 0
+            for pr in self.printers:
+                print('Поиск принтера ', pr['name'])
+                res = self.connect_to_printer(pr)
+                count1 = count1 + 1
+                print('count ', count1)
+                
+                if res == 1:
+                    self.toProgressBar.emit(30)
+                    self.str1 = pr['name']
+                    self.printer = count1
+                    self.choice_mail_box()
+                    self.toProgressBar.emit(40)
+                    self.list_files()
+                    break
+                else:
+                    print('Не обнаружен принтер ', pr['name'])
+                    self.str1 = "Принтер не обнаружен"
+            
+            self.toProgressBar.emit(100)        
+            self.toInit.emit(self.str1, self.data_files)
+        except:
+            self.toError.emit("Ошибка поиска принтера")
         
-        self.toProgressBar.emit(100)        
-        self.toInit.emit(self.str1, self.data_files)
-
-        
-    def polling_start(self):
-        for i in range(0,10):
-            self.toProgressBar.emit(i*10)
-            QtCore.QThread.msleep(100)     
-            print(i)
  
     def connect_to_printer(self, printer):
         try:
@@ -263,11 +255,11 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             return 1
         except Exception as ex:
             print("ERROR CONNECT")
-            #print(ex)
+            #self.toError.emit("Ошибка поиска принтера")
             return 0  
             
     def choice_mail_box(self):
-        print('choice_mail_box for ', self.printer)
+        #print('choice_mail_box for ', self.printer)
         try:
             if self.printer == 1:
                 mail_box_num = self.driver.find_element(By.NAME, "list{}".format(self.n_box_mail)).click()
@@ -279,6 +271,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                 mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
             return 1
         except Exception as ex:
+            self.toError.emit("Ошибка смены ящика")
             print(ex)
             return 0
             
@@ -301,29 +294,118 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                         self.data_files.append(el.text)     
         except Exception as ex:
             print(ex)
+            self.toError.emit("Ошибка обновления списка")
             return None
             
-    def update_file(self, n_mail_box):
-        self.n_box_mail = n_mail_box
-        self.toProgressBar.emit(0)
-        self.driver.refresh()
-        self.toProgressBar.emit(10)
-        iframe = self.driver.find_element(By.NAME,"NF")
-        self.driver.switch_to.frame(iframe)
-        self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
-        self.toProgressBar.emit(30)
-        self.driver.switch_to.default_content()
-        iframe1 = self.driver.find_element(By.NAME,"RF")
-        self.driver.switch_to.frame(iframe1)
-        self.toProgressBar.emit(40)
-        #self.connect_to_printer(self.printer)
-        self.choice_mail_box()
-        self.list_files()
-        
-        self.toInit.emit(self.str1, self.data_files)
-        self.toProgressBar.emit(100)
+    def update_file(self, n_mail_box):  
+        try:
+            self.n_box_mail = n_mail_box
+            self.toProgressBar.emit(0)
+            self.driver.refresh()
+            self.toProgressBar.emit(10)
+            iframe = self.driver.find_element(By.NAME,"NF")
+            self.driver.switch_to.frame(iframe)
+            self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+            self.toProgressBar.emit(30)
+            self.driver.switch_to.default_content()
+            iframe1 = self.driver.find_element(By.NAME,"RF")
+            self.driver.switch_to.frame(iframe1)
+            self.toProgressBar.emit(40)
+            self.choice_mail_box()
+            self.list_files()
+            self.toInit.emit(self.str1, self.data_files)
+            self.toProgressBar.emit(100)
+        except:
+            self.toError.emit("Ошибка обновления ящика")
    
-        
+    def load_file(self, n_file, del_in_mail, del_tif, convert_to_tif, vert, current_file_name):
+        self.vert = vert #ориентация выходного документа
+        self.del_in_mail = del_in_mail          #удалять файл после скачивания
+        self.del_tif = del_tif                  #удалять tif при конвертации
+        self.convert_to_tif = convert_to_tif    #конвертировать в pdf
+        self.n_file = n_file
+        self.current_file_name = current_file_name
+        try:
+            self.toProgressBar.emit(0)
+            if self.printer == 1:
+                str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+            if self.printer == 2:
+                str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+            check_box1 = self.driver.find_element(By.XPATH, str1).click()
+            if self.printer == 1:
+                button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/input").click()
+                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
+            if self.printer == 2:    
+                button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/center/small/input").click()
+                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()                   
+            self.toProgressBar.emit(10)
+            
+            time.sleep(2)
+            self.driver.refresh()
+            self.toProgressBar.emit(20)
+            iframe = self.driver.find_element(By.NAME,"NF")
+            self.driver.switch_to.frame(iframe)
+            self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+            self.driver.switch_to.default_content()
+            iframe1 = self.driver.find_element(By.NAME,"RF")
+            self.driver.switch_to.frame(iframe1)
+            self.choice_mail_box()
+            #self.list_files()
+            self.toProgressBar.emit(30)
+            
+            if self.del_in_mail == 1: #если надо удалять файл после скачивания              
+                if self.printer == 1:
+                    str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+                if self.printer == 2:
+                    str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
+                check_box1 = self.driver.find_element(By.XPATH, str1).click()
+                time.sleep(2) #3
+                button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/div/input").click()
+                time.sleep(1) #2
+                obj = self.driver.switch_to.alert
+                mes = obj.text
+                print(mes)
+                time.sleep(2) #2
+                obj.accept() #подтвердить удаление
+                #time.sleep(1) #1
+                self.driver.refresh()
+                self.toProgressBar.emit(40)
+                iframe = self.driver.find_element(By.NAME,"NF")
+                self.driver.switch_to.frame(iframe)
+                self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+                self.driver.switch_to.default_content()
+                iframe1 = self.driver.find_element(By.NAME,"RF")
+                self.driver.switch_to.frame(iframe1)
+                self.toProgressBar.emit(45)
+                self.choice_mail_box()
+                self.list_files() 
+
+            file_find = 0
+            #поиск скачанного файла
+            str2 = self.current_file_name + '.tif'
+            os.chdir(self.doc_dir) #переключиться на папку с документами
+            for file in glob.glob(str2):
+                print('Нашли файл tiff', file)
+                file_find = 1
+                if self.convert_to_tif == 1: 
+                    convert_with_auto_rotate(str2, self.vert) #конвертация в pdf
+                    str2 = self.current_file_name + '.pdf'
+                    if self.del_tif == 1:
+                        os.remove(file)
+            if  file_find == 0:
+                str2 = self.current_file_name + '.pdf'
+                for file in glob.glob(str2):
+                    print('Нашли файл pdf', file)
+                    file_find = 1
+
+            self.toInit.emit(self.str1, self.data_files)
+            if file_find ==1:
+                self.toError.emit("Файл " + str2 + " скачан")
+            else:
+                self.toError.emit("Ошибка скачивания файла")
+            self.toProgressBar.emit(100)
+        except:
+            self.toError.emit("Ошибка скачивания файла")
         
 #--------------------------------M Y W I N D O W----------------------
 class mywindow(QtWidgets.QMainWindow):
@@ -338,8 +420,6 @@ class mywindow(QtWidgets.QMainWindow):
     convert_to_tif = 1 #конвертировать в pdf
     doc_dir = "D:\Pavel\Download" #куда сохранять файлы
     ip = 'http://192.168.0.128/'
-    # 
-    
     trayIcon = None
     my_dir = None
 
@@ -347,6 +427,7 @@ class mywindow(QtWidgets.QMainWindow):
     emit_connect = QtCore.pyqtSignal()
     emit_update = QtCore.pyqtSignal(int)
     emit_mail_update = QtCore.pyqtSignal()
+    emit_load_file = QtCore.pyqtSignal(int, int, int, int, int, str)
     
     def __init__(self):
         super(mywindow, self).__init__()
@@ -388,7 +469,6 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.checkBox_3.stateChanged.connect(self.changeTitle_3)
         
         self.ui.tableWidget.setColumnCount(4)
-        #self.ui.label_2.setVisible(False)
         self.ui.label_2.setText("Поиск принтера...")
         self.ui.label.setText("Поиск принтера...")
         self.ui.label_3.setVisible(False)
@@ -403,25 +483,20 @@ class mywindow(QtWidgets.QMainWindow):
             
         self.ui.label_7.setText(self.doc_dir)
         
-        # create thread
         self.thread = QtCore.QThread()
-        # create object which will be moved to another thread
-        self.browserHandler = BrowserHandler(self.doc_dir, self.ip)
-        # move object to another thread
+        self.browserHandler = BrowserHandler(self.doc_dir, self.ip, self.n_box_mail)
         self.browserHandler.moveToThread(self.thread)
-        # after that, we can connect signals from this object to slot in GUI thread
         self.browserHandler.toProgressBar.connect(self.inProgressBar)
         self.browserHandler.toInit.connect(self.initComplete)
-        # connect started signal to run method of object in another thread
+        self.browserHandler.toError.connect(self.funcError)
         self.thread.started.connect(self.browserHandler.run)
-        # start thread
         self.thread.start()
         self.dis_gui()
         #-----------------
-        self.emit_start.connect(self.browserHandler.polling_start)
         self.emit_connect.connect(self.browserHandler.run)
         self.emit_update.connect(self.browserHandler.update_file)
-            
+        self.emit_load_file.connect(self.browserHandler.load_file)
+         
     #-----------------------------------------------------------------------------
     @QtCore.pyqtSlot(int)
     def inProgressBar(self, dig):
@@ -435,6 +510,12 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label.setText(lab)
         self.data_files = listFiles
         self.update_file_list()
+        self.en_gui()
+        
+    @QtCore.pyqtSlot(str)
+    def funcError(self, str1):
+        print('receive error ', str1)
+        self.ui.label_2.setText(str1)
         self.en_gui()
     
     def dis_gui(self):
@@ -463,45 +544,16 @@ class mywindow(QtWidgets.QMainWindow):
         dirlist = dirlist.replace(str1, str2)
         print(dirlist)
         self.doc_dir = dirlist
-        
         self.ui.label_7.setText(self.doc_dir)
         self.crudConfig()
-
         self.dis_gui()
-        
         self.ui.label.setText("Перезапустите программу")
-        # self.driver.close()
-        
-        # options = webdriver.ChromeOptions() 
-        # prefs = {"download.default_directory" : self.doc_dir}
-        # options.add_experimental_option("prefs",prefs)
-        # #--headless--headless--headless
-        # options.add_argument("--headless")
-
-        # self.driver = webdriver.Chrome(executable_path="D:\\Pavel\\chromedriver\\chromedriver.exe",chrome_options=options)
-        # self.driver.set_page_load_timeout(5)
-        
-        # print('Поиск принтера ', self.printers[self.printer-1]['name'])
-        # res = self.connect_to_printer(self.printers[self.printer-1])
-        
-        # if res == 1:
-            # self.ui.label.setText(self.printers[self.printer-1]['name'])
-            # self.choice_mail_box()
-            # self.update_file_list()
-        # else:
-            # print('Не обнаружен принтер ', self.printers[self.printer-1]['name'])
-            # self.ui.label.setText("Принтер не обнаружен ")
         
         
     def closeEvent(self, event):
         event.ignore()
         self.hide()
-        self.trayIcon.showMessage(
-                "Обзор сканера",
-                "Я пока буду в трее",
-                QSystemTrayIcon.Information,
-                2000
-            )
+        self.trayIcon.showMessage("Обзор сканера", "Я пока буду в трее", QSystemTrayIcon.Information,2000)
 
 
     def mail_update(self):
@@ -515,7 +567,6 @@ class mywindow(QtWidgets.QMainWindow):
                 self.ui.label_2.setText("Обновление номера почтового ящика...")
                 self.emit_update.emit(self.n_box_mail)
                 self.dis_gui()
-                #-----------------------
             else:
                 self.ui.lineEdit.clear()
         except:
@@ -566,7 +617,6 @@ class mywindow(QtWidgets.QMainWindow):
         self.ip = config.get("Settings", "ip")
         self.doc_dir = config.get("Settings", "doc_dir")
         self.n_box_mail = int(config.get("Settings", "n_box_mail"))
-        
         print("read ", self.del_in_mail, self.del_tif, self.convert_to_tif, self.ip)
         
     def changeTitle(self, state):
@@ -575,7 +625,6 @@ class mywindow(QtWidgets.QMainWindow):
         else:
             self.del_in_mail = 0
         self.crudConfig()
-        #self.emit_start.emit()
     
     def changeTitle_2(self, state):
         if state == Qt.Checked:
@@ -593,12 +642,10 @@ class mywindow(QtWidgets.QMainWindow):
     
     def onClickedHorz(self):
         if self.ui.radioButton.isChecked():
-            print('Horiz')
             self.vert = 0
         
     def onClickedVert(self):
         if self.ui.radioButton_2.isChecked():
-            print('Vert')   
             self.vert = 1
     
     def btnClicked(self): #подключиться к принтеру
@@ -637,124 +684,19 @@ class mywindow(QtWidgets.QMainWindow):
 
     def tab_click(self):
         self.n_file = self.ui.tableWidget.currentRow() + 1
-        #print(self.data_files)
-        #print(self.n_file)
         tup = self.data_files[self.n_file - 1]
         t_split = tup.split()
         self.current_file_name = 'img0' + t_split[0]
-        #print(self.current_file_name)
 
     def load_file(self): #скачать файл
+        self.dis_gui()
+        os.system(r"explorer.exe c:\\")
         if (len(self.data_files)) and self.n_file > 0: # файлы есть и конкретный выбран
-            try:
-                #print(self.printer)
-                if self.printer == 1:
-                    str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
-                if self.printer == 2:
-                    str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
-                check_box1 = self.driver.find_element(By.XPATH, str1).click()
-                if self.printer == 1:
-                    button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/input").click()
-                    file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/a").click()
-                if self.printer == 2:    
-                    button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/center/small/input").click()
-                    file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()                   
-                
-                #self.driver.back() #вернуться на страницу с файлами
-                #time.sleep(2)
-                #iframe1 = self.driver.find_element(By.NAME,"RF")
-                #self.driver.switch_to.frame(iframe1)
-                
-                time.sleep(2)
-                self.driver.refresh()
-                
-                iframe = self.driver.find_element(By.NAME,"NF")
-                self.driver.switch_to.frame(iframe)
-                self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
-                self.driver.switch_to.default_content()
-                iframe1 = self.driver.find_element(By.NAME,"RF")
-                self.driver.switch_to.frame(iframe1)
-                #self.connect_to_printer(self.printer)
-                self.choice_mail_box()
-                self.update_file_list()
-                
-                #
-                if self.del_in_mail == 1: #если надо удалять файл после скачивания              
-                    if self.printer == 1:
-                        str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
-                    if self.printer == 2:
-                        str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(self.n_file + 1) + ']/td[1]/input'
-                    check_box1 = self.driver.find_element(By.XPATH, str1).click()
-                    time.sleep(2) #3
-                    button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/div/input").click()
-                    
-                    time.sleep(1) #2
-                    #alert = Alert(self.driver)
-                    #time.sleep(2)
-                    #alert.accept()
-                    obj = self.driver.switch_to.alert
-                    mes = obj.text
-                    print(mes)
-                    time.sleep(2) #2
-                    obj.accept()
-                    
-                    #time.sleep(1) #1
-                    self.driver.refresh()
-                    
-                    iframe = self.driver.find_element(By.NAME,"NF")
-                    self.driver.switch_to.frame(iframe)
-                    self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
-                    self.driver.switch_to.default_content()
-                    iframe1 = self.driver.find_element(By.NAME,"RF")
-                    self.driver.switch_to.frame(iframe1)
-                    #self.connect_to_printer(self.printer)
-                    self.choice_mail_box()
-                    self.update_file_list()
-                                
-                file_find = 0
-                #поиск скачанного файла
-                str2 = self.current_file_name + '.tif'
-                
-                os.chdir(self.doc_dir) #переключиться на папку с документами
-                for file in glob.glob(str2):
-                    print('Нашли файл tiff', file)
-                    file_find = 1
-                    if self.convert_to_tif == 1: 
-                        convert_with_auto_rotate(str2, self.vert) #конвертация в pdf
-                        str2 = self.current_file_name + '.pdf'
-                        if self.del_tif == 1:
-                            os.remove(file)
-                if  file_find == 0:
-                    str2 = self.current_file_name + '.pdf'
-                    for file in glob.glob(str2):
-                        print('Нашли файл pdf', file)
-                        file_find = 1
-                        
-                #check_box1 = self.driver.find_element(By.XPATH, str1).click() #снять выделение
-                #self.connect_to_printer(self.printer)
-                #self.driver.get(response.url)
-                #time.spleep(1)
-                
-                
-                if file_find ==1:
-                    self.ui.label_2.setText("Файл " + str2 + " скачан")
-                else:
-                    self.ui.label_2.setText("Файл не скачан1")
-                    
-                    
-                self.ui.label_2.setVisible(True)
-                #return 1
-            except Exception as ex:
-                print(ex)
-                self.ui.label_2.setText("Файл не скачан2")
-                self.ui.label_2.setVisible(True)
-                #return 0
+            self.ui.label_2.setText("Скачивание файла...")
+            self.emit_load_file.emit(self.n_file, self.del_in_mail, self.del_tif, self.convert_to_tif, self.vert, self.current_file_name)
         else:
             self.ui.label_2.setText("Файл не выбран.")
             self.ui.label_2.setVisible(True)
-
-
-    
 
 
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
