@@ -41,7 +41,7 @@ class Ui_MainWindow(object):
         self.tableWidget.setObjectName("tableWidget")
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setEnabled(True)
-        self.label_2.setGeometry(QtCore.QRect(470, 330, 141, 20))
+        self.label_2.setGeometry(QtCore.QRect(470, 330, 181, 20))
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(self.centralwidget)
         self.label_3.setEnabled(True)
