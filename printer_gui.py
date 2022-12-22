@@ -8,6 +8,8 @@ import sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.alert import Alert
+from selenium.webdriver.support.ui import Select
+
 import time
 import os
 import glob
@@ -361,19 +363,21 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         self.convert_to_tif = convert_to_tif    #конвертировать в pdf
         self.n_files = n_files #номера файлов
         self.current_files_names = current_files_names #имена файлов
-        print(self.n_files, self.current_files_names)
+        print(self.n_files, self.current_files_names, len(self.n_files), len(self.current_files_names))
         
+        self.toProgressBar.emit(0)
+        
+        if self.printer == 3:
+            self.load72()
+            return
         try:
             str1 = ''
-            self.toProgressBar.emit(0)
             print('1')
             for el in self.n_files: #отметить все файлы на скачивание
                 if self.printer == 1 or self.printer == 4 or self.printer == 5:
                     str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
                 if self.printer == 2:
                     str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
-                if self.printer == 3:
-                    str1 = '/html/body/form[3]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
                 check_box1 = self.driver.find_element(By.XPATH, str1).click()
             print('2')
             
@@ -384,9 +388,6 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             if self.printer == 2:    
                 button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/center/small/input").click()#вызвать
                 file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr[3]/td[2]/small/a").click()                   
-            if self.printer == 3:
-                button1 = self.driver.find_element(By.XPATH, "/html/body/form[3]/center/small/input").click() #вызвать
-                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td[2]/small/a").click()
             if self.printer == 4:
                 button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[5]/td[2]/input").click()
                 count = 1
@@ -432,9 +433,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                     if self.printer == 1 or self.printer == 4 or self.printer == 5:
                         str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
                     if self.printer == 2:
-                        str1 = '/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
-                    if self.printer == 3:
-                        str1 = '/html/body/form[3]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
+                        str1 = '/html/body/formнуж[4]/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
                     check_box1 = self.driver.find_element(By.XPATH, str1).click()
                 
                 time.sleep(2) #3
@@ -443,9 +442,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                     button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/div/small/input[2]").click()
                 if self.printer == 2:    
                     button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/div/input").click()
-                if self.printer == 3:    
-                    button1 = self.driver.find_element(By.XPATH, "/html/body/form[3]/div/input").click()
-                
+               
                 QtCore.QThread.msleep(800) #2
                 obj = self.driver.switch_to.alert
                 mes = obj.text
@@ -505,14 +502,48 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         except Exception as ex:
             print(ex)
             self.toError.emit("Ошибка скачивания файла")
-        
+            
+    #--------------------------------------------- LOAD 72 ------------------------        
+    def load72(self):
+        try:
+            print('1')
+            select = Select(self.driver.find_element(By.XPATH, "/html/body/form[3]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td/small/select"))
+            if self.convert_to_tif == 1:
+                select.select_by_value('PDF')    
+            else:
+                select.select_by_value("TIFJPG")             
+            percent = 100 / len(self.n_files)
+            progress = 0
+            for el in self.n_files: #по очереди качаем все файлы
+                str1 = '/html/body/form[3]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
+                check_box1 = self.driver.find_element(By.XPATH, str1).click()
+                print('2')
+                button1 = self.driver.find_element(By.XPATH, "/html/body/form[3]/center/small/input").click() #вызвать
+                file1 = self.driver.find_element(By.XPATH,"/html/body/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td[2]/small/a").click()
+                QtCore.QThread.msleep(800)        
+                self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])   
+                iframe = self.driver.find_element(By.NAME,"NF")
+                self.driver.switch_to.frame(iframe)
+                self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+                self.driver.switch_to.default_content()
+                iframe1 = self.driver.find_element(By.NAME,"RF")
+                self.driver.switch_to.frame(iframe1)
+                self.choice_mail_box()
+                progress = progress + percent
+                self.toProgressBar.emit(int(progress))
+        except Exception as ex:
+            print(ex)
+            self.toError.emit("Ошибка скачивания файла")
+    #---------------------------------------- DELETE FILES---------------------------------------------
     def delete_file(self, n_files, del_in_mail, del_tif, convert_to_tif, vert, current_files_names):
-        
         self.n_files = n_files
         self.current_files_names = current_files_names
+        self.toProgressBar.emit(0)
+        if self.printer == 3:
+            self.delete72()
+            return
         try:
             str1 = ''
-            self.toProgressBar.emit(0)
             print('1')
             for el in self.n_files:
                 if self.printer == 1 or self.printer == 4 or self.printer == 5:
@@ -570,7 +601,57 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         except Exception as ex:
             print(ex)
             self.toError.emit("Ошибка удаления файла")
-        
+            
+    def delete72(self):    
+        try:
+            percent = 100 / len(self.n_files)
+            progress = 0
+            count = 0
+            for el in self.n_files: #по очереди удаляем все файлы
+                self.toError.emit("удаление файла " + self.current_files_names[count])
+                str1 = '/html/body/form[3]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2 - count) + ']/td[1]/input'
+                count = count + 1 #сдвинем указатель на гулку удаляемого файла
+                check_box1 = self.driver.find_element(By.XPATH, str1).click()
+                time.sleep(2) #3
+                button1 = self.driver.find_element(By.XPATH, "/html/body/form[3]/div/input").click()
+                QtCore.QThread.msleep(800) #2
+                obj = self.driver.switch_to.alert
+                mes = obj.text
+                print(mes)
+                QtCore.QThread.msleep(1700) #2
+                obj.accept() #подтвердить удаление
+                time.sleep(2) #3               
+                self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])
+                print('refresh')
+                QtCore.QThread.msleep(1100) #1
+                iframe = self.driver.find_element(By.NAME,"NF")
+                print('NF')
+                self.driver.switch_to.frame(iframe)
+                print('SWITCH')
+                self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+                print('mail box')
+                self.driver.switch_to.default_content()
+                print('def content')
+                iframe1 = self.driver.find_element(By.NAME,"RF")
+                print('RF')
+                self.driver.switch_to.frame(iframe1)
+                print('Frame')
+                self.choice_mail_box()
+                print('choise_mail')
+                #self.list_files() 
+                #print('list')
+                self.toInit.emit(self.str1, self.data_files)
+                #self.toError.emit("Файл " + self.current_file_name + " удален")
+                progress = progress + percent
+                self.toProgressBar.emit(int(progress))
+            self.list_files() #обновим список файлов
+            self.toInit.emit(self.str1, self.data_files)
+            self.toProgressBar.emit(100)
+        except Exception as ex:
+            print(ex)
+            self.toError.emit("Ошибка удаления файла")
+            
+            
 #--------------------------------M Y W I N D O W----------------------
 class mywindow(QtWidgets.QMainWindow):
     printer = 0
@@ -680,8 +761,16 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label.setText(lab)
         self.data_files = listFiles
         self.update_file_list()
-        if "5325" in lab or "73" in lab or "7120" in lab:
-            self.need_pdf = 0 
+        if "72" in lab:
+            self.ui.checkBox.setVisible(False)
+            self.ui.checkBox.setChecked(False)
+            self.ui.checkBox_2.setVisible(False)
+            self.ui.checkBox_2.setChecked(False)
+            self.ui.radioButton.setVisible(False)
+            self.ui.radioButton_2.setVisible(False)
+            self.ui.label_4.setVisible(False)
+        #if "5325" in lab or "73" in lab or "7120" in lab:
+        #    self.need_pdf = 0 
         self.en_gui()
         
     @QtCore.pyqtSlot(str)
@@ -700,14 +789,14 @@ class mywindow(QtWidgets.QMainWindow):
 
     def en_gui(self):
         self.ui.pushButton.setEnabled(True)
-        if self.need_pdf == 1:
-            self.ui.checkBox_2.setEnabled(True)    
-            self.ui.checkBox_2.setEnabled(True)
-        else:
-            self.ui.checkBox_2.setChecked(False)
-            self.ui.checkBox_3.setChecked(False)
-            self.ui.checkBox_2.setEnabled(False)
-            self.ui.checkBox_3.setEnabled(False)
+        #if self.need_pdf == 1:
+        #self.ui.checkBox_2.setEnabled(True)    
+        #self.ui.checkBox_3.setEnabled(True)
+        #else:
+        #    self.ui.checkBox_2.setChecked(False)
+        #    self.ui.checkBox_3.setChecked(False)
+        #    self.ui.checkBox_2.setEnabled(False)
+        #    self.ui.checkBox_3.setEnabled(False)
         self.ui.pushButton_2.setEnabled(True)    
         self.ui.pushButton_3.setEnabled(True)
         self.ui.pushButton_4.setEnabled(True)
