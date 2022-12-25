@@ -192,9 +192,10 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
     toError = QtCore.pyqtSignal(str)
     driver = None    
     doc_dir = None
-    printer = None
+    printer = 0
     str1 = '' #для передачи в главное окно
     n_box_mail = 1 #номер почтового ящика
+    box_name = "None"
     data_files = []
     del_in_mail = 1 #удалять файл после скачивания
     del_tif = 1 #удалять tif при конвертации
@@ -209,7 +210,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         {'url' : 'scan.htm', 'name' : 'Xerox WorkCentre 7120'},
     ]
     
-    def __init__(self, doc_dir, ip, n_box_mail):
+    def __init__(self, doc_dir, ip, n_box_mail, box_name):
         super(BrowserHandler, self).__init__() #
         print('start thread ', doc_dir)
         try:
@@ -217,6 +218,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.n_box_mail = n_box_mail
             self.ip = ip
             self.doc_dir = doc_dir
+            self.box_name = box_name
             options = webdriver.ChromeOptions() 
             prefs = {"download.default_directory" : self.doc_dir}
             options.add_experimental_option("prefs",prefs)
@@ -235,29 +237,20 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             start_time = time.time()
             print("IP=",self.ip)
             self.toProgressBar.emit(0)
-            count1 = 0
-            for pr in self.printers:
-                print('Поиск принтера ', pr['name'])
-                res = self.connect_to_printer(pr)
-                count1 = count1 + 1
-                print('count ', count1)
-                
-                if not res == '':
-                    self.toProgressBar.emit(30)
-                    
-                    self.printer = count1
-                    self.choice_mail_box()
-                    self.toProgressBar.emit(40)
-                    self.list_files()
-                    if "5325" in res:
-                        self.printer = 4
-                    if "7120" in res:
-                        self.printer = 5
-                    self.str1 = self.printers[self.printer-1]['name']
-                    break
-                else:
-                    print('Не обнаружен принтер ', pr['name'])
-                    self.str1 = "Принтер не обнаружен"
+
+            res = self.connect_to_printer()
+
+            if res > 0:
+                self.toProgressBar.emit(30)
+                self.choice_mail_box()
+                self.toProgressBar.emit(40)
+                self.list_files()
+                print(self.printers[self.printer-1]['name'])
+                self.str1 = self.printers[self.printer-1]['name']
+                print('Обнаружен принтер ', self.printers[self.printer-1]['name'])
+            else:
+                print('Не обнаружен принтер ', pr['name'])
+                self.str1 = "Принтер не обнаружен"
             
             self.toProgressBar.emit(100)        
             self.toInit.emit(self.str1, self.data_files)
@@ -266,45 +259,59 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.toError.emit("Ошибка поиска принтера")
         
  
-    def connect_to_printer(self, printer):
+    def connect_to_printer(self):
         try:
             print('START CONNECT')
-            self.driver.get(url=self.ip + printer['url'])
-            #time.sleep(1) #2
-            print('search')
-
+            #self.driver.get(url=self.ip + printer['url'])
+            self.driver.get(url=self.ip)
+            print("TITLE: ", self.driver.title)
+            if "5325" in self.driver.title:
+                self.printer = 4
+            if "7120" in self.driver.title:
+                self.printer = 5
+            self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])
             iframe = self.driver.find_element(By.NAME,"NF")
             self.driver.switch_to.frame(iframe)
             self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
             self.driver.switch_to.default_content()
             iframe1 = self.driver.find_element(By.NAME,"RF")
             self.driver.switch_to.frame(iframe1)
-            return self.driver.title
+            return self.printer
         except Exception as ex:
             print("ERROR CONNECT to ", printer['name'])
             print(ex)
             #self.toError.emit("Ошибка поиска принтера")
-            return ''  
+            return 0  
             
     def choice_mail_box(self):
-        #print('choice_mail_box for ', self.printer)
+        print('choice_mail_box for ', self.printer, self.box_name)
+       
         try:
+            if self.printer == 5:
+
+                list_mail_box = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table[2]/tbody/tr/td/table/tbody/tr/td/table")
+                count = 0
+                lst = list_mail_box[0].text.split("\n")
+                for el in lst:
+                    if self.box_name in el:
+                        break
+                    count = count + 1
             if self.printer == 1 or self.printer == 4  or self.printer == 5:
-                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(self.n_box_mail)).click()
-            if self.printer == 2:
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").click()
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").clear()
-                QtCore.QThread.msleep(1000)
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").send_keys(self.n_box_mail)
-                mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
-            if self.printer == 3:
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/small/input").click()
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/small/input").clear()
-                QtCore.QThread.msleep(500)
-                self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/small/input").send_keys(self.n_box_mail)
-                QtCore.QThread.msleep(1000)
-                mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[2]/small/input").click() 
-            return 1
+                mail_box_num = self.driver.find_element(By.NAME, "list{}".format(count)).click()
+            # if self.printer == 2:
+                # self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").click()
+                # self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").clear()
+                # QtCore.QThread.msleep(1000)
+                # self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").send_keys(self.n_box_mail)
+                # mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[3]/small/input").click()
+            # if self.printer == 3:
+                # self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/small/input").click()
+                # self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/small/input").clear()
+                # QtCore.QThread.msleep(500)
+                # self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/small/input").send_keys(self.n_box_mail)
+                # QtCore.QThread.msleep(1000)
+                # mail_box_num = self.driver.find_element(By.XPATH, "/html/body/form[1]/p[2]/small/input").click() 
+            # return 1
         except Exception as ex:
             self.toError.emit("Ошибка смены ящика")
             print(ex)
@@ -336,9 +343,9 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.toError.emit("Ошибка обновления списка")
             return None
             
-    def update_file(self, n_mail_box):  
+    def update_file(self, box_name):  
         try:
-            self.n_box_mail = n_mail_box
+            self.box_name = box_name
             self.toProgressBar.emit(0)
             self.driver.refresh()
             self.toProgressBar.emit(10)
@@ -374,9 +381,17 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         if self.printer == 2:
             self.load133()
             return
+
         try:
             str1 = ''
-            print('1')
+            #выбор формата скачивания
+            if self.printer == 5:
+                select = Select(self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td[1]/small/select"))
+                if self.convert_to_tif == 1:
+                    select.select_by_value('PDF')    
+                else:
+                    select.select_by_value("TIFJPG") 
+                
             for el in self.n_files: #отметить все файлы на скачивание
                 if self.printer == 1 or self.printer == 4 or self.printer == 5:
                     str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
@@ -408,13 +423,10 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                         QtCore.QThread.msleep(1000)
                         count = count + 1
             self.toProgressBar.emit(10)
-
-            print('3')
             QtCore.QThread.msleep(1000)
             if self.printer == 4:
                 time.sleep(3)
             self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])
-            #self.driver.refresh()
             self.toProgressBar.emit(20)
             iframe = self.driver.find_element(By.NAME,"NF")
             self.driver.switch_to.frame(iframe)
@@ -423,11 +435,9 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             iframe1 = self.driver.find_element(By.NAME,"RF")
             self.driver.switch_to.frame(iframe1)
             self.choice_mail_box()
-            #self.list_files()
             self.toProgressBar.emit(30)
             
             if self.del_in_mail == 1: #если надо удалять файл после скачивания              
-
                 for el in self.n_files:
                     if self.printer == 1 or self.printer == 4 or self.printer == 5:
                         str1 = '/html/body/form[4]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[' + str(el + 2) + ']/td[1]/input'
@@ -473,36 +483,35 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                 print('choise_mail')
                 self.list_files() 
                 print('list')
-            
-            file_find = 0
+                self.toInit.emit(self.str1, self.data_files)
+            # file_find = 0
             #поиск скачанного файла
-            str2 = self.current_files_names[0] + '.tif'
-            os.chdir(self.doc_dir) #переключиться на папку с документами
-            for file in glob.glob(str2):
-                print('Нашли файл tiff', file)
-                file_find = 1
-                if self.convert_to_tif == 1: 
-                    convert_with_auto_rotate(str2, self.vert) #конвертация в pdf
-                    str2 = self.current_files_names[0] + '.pdf'
-                    if self.del_tif == 1:
-                        os.remove(file)
-            if  file_find == 0:
-                str2 = self.current_files_names[0] + '.pdf'
-                for file in glob.glob(str2):
-                    print('Нашли файл pdf', file)
-                    file_find = 1
+            # str2 = self.current_files_names[0] + '.tif'
+            # os.chdir(self.doc_dir) #переключиться на папку с документами
+            # for file in glob.glob(str2):
+                # print('Нашли файл tiff', file)
+                # file_find = 1
+                # if self.convert_to_tif == 1: 
+                    # convert_with_auto_rotate(str2, self.vert) #конвертация в pdf
+                    # str2 = self.current_files_names[0] + '.pdf'
+                    # if self.del_tif == 1:
+                        # os.remove(file)
+            # if  file_find == 0:
+                # str2 = self.current_files_names[0] + '.pdf'
+                # for file in glob.glob(str2):
+                    # print('Нашли файл pdf', file)
+                    # file_find = 1
 
-            self.toInit.emit(self.str1, self.data_files)
-            if file_find ==1:
-                self.toError.emit("Файл " + str2 + " скачан")
-            else:
-                self.toError.emit("Ошибка скачивания файла")
+            # self.toInit.emit(self.str1, self.data_files)
+            # if file_find ==1:
+                # self.toError.emit("Файл " + str2 + " скачан")
+            # else:
+                # self.toError.emit("Ошибка скачивания файла")
+            self.toError.emit("Файлы скачаны")
             self.toProgressBar.emit(100)
         except Exception as ex:
             print(ex)
-            self.toError.emit("Ошибка скачивания файла")
-            
-            
+            self.toError.emit("Ошибка скачивания файла")              
             
     #--------------------------------------------- LOAD 133 ------------------------        
     def load133(self):
@@ -546,6 +555,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         except Exception as ex:
             print(ex)
             self.toError.emit("Ошибка скачивания файла")    
+            
     #--------------------------------------------- LOAD 72 ------------------------        
     def load72(self):
         try:
@@ -578,6 +588,9 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         except Exception as ex:
             print(ex)
             self.toError.emit("Ошибка скачивания файла")
+            
+    
+    
     #---------------------------------------- DELETE FILES---------------------------------------------
     def delete_file(self, n_files, del_in_mail, del_tif, convert_to_tif, vert, current_files_names):
         self.n_files = n_files
@@ -616,7 +629,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             if self.printer == 4:
                 time.sleep(5)
             
-            self.driver.refresh()
+            self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])
             print('refresh')
             QtCore.QThread.msleep(1100) #1
             self.toProgressBar.emit(40)
@@ -638,8 +651,8 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.list_files() 
             print('list')
             self.toInit.emit(self.str1, self.data_files)
-            self.toError.emit("Файл " + self.current_file_name + " удален")
-            
+            self.toError.emit("Файл удален")
+            self.toInit.emit(self.str1, self.data_files)
             self.toProgressBar.emit(100)
         except Exception as ex:
             print(ex)
@@ -735,7 +748,8 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                 progress = progress + percent
                 self.toProgressBar.emit(int(progress))
             self.list_files() #обновим список файлов
-            self.toInit.emit(self.str1, self.data_files)
+            #self.toInit.emit(self.str1, self.data_files)
+            
             self.toProgressBar.emit(100)
         except Exception as ex:
             print(ex)
@@ -758,10 +772,12 @@ class mywindow(QtWidgets.QMainWindow):
     trayIcon = None
     my_dir = None
     need_pdf = 1
+    n_box_mail = 1
+    box_name = "None"
 
     emit_start = QtCore.pyqtSignal()
     emit_connect = QtCore.pyqtSignal()
-    emit_update = QtCore.pyqtSignal(int)
+    emit_update = QtCore.pyqtSignal(str)
     emit_mail_update = QtCore.pyqtSignal()
     emit_load_file = QtCore.pyqtSignal(object, int, int, int, int, object)
     emit_delete_file = QtCore.pyqtSignal(object, int, int, int, int, object)
@@ -812,7 +828,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label_2.setText("Поиск принтера...")
         self.ui.label.setText("Поиск принтера...")
         self.ui.label_3.setVisible(False)
-        self.ui.lineEdit.setText(str(self.n_box_mail))          
+        self.ui.lineEdit.setText(str(self.box_name))          
          
         if self.del_in_mail == 1:
             self.ui.checkBox.setChecked(True)
@@ -824,7 +840,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label_7.setText(self.doc_dir)
         
         self.thread = QtCore.QThread()
-        self.browserHandler = BrowserHandler(self.doc_dir, self.ip, self.n_box_mail)
+        self.browserHandler = BrowserHandler(self.doc_dir, self.ip, self.n_box_mail, self.box_name)
         self.browserHandler.moveToThread(self.thread)
         self.browserHandler.toProgressBar.connect(self.inProgressBar)
         self.browserHandler.toInit.connect(self.initComplete)
@@ -851,7 +867,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label.setText(lab)
         self.data_files = listFiles
         self.update_file_list()
-        if "72" in lab:
+        if  "72" in lab:
             self.ui.checkBox.setVisible(False)
             self.ui.checkBox.setChecked(False)
             self.ui.checkBox_2.setVisible(False)
@@ -862,6 +878,12 @@ class mywindow(QtWidgets.QMainWindow):
         if "1xx" in lab:
             self.ui.checkBox.setVisible(False)
             self.ui.checkBox.setChecked(False)
+        if "71" in lab:
+            self.ui.checkBox_2.setVisible(False)
+            self.ui.checkBox_2.setChecked(False)
+            self.ui.radioButton.setVisible(False)
+            self.ui.radioButton_2.setVisible(False)
+            self.ui.label_4.setVisible(False)
         #if "5325" in lab or "73" in lab or "7120" in lab:
         #    self.need_pdf = 0 
         self.en_gui()
@@ -925,21 +947,26 @@ class mywindow(QtWidgets.QMainWindow):
 
 
     def mail_update(self):
-        shost = self.ui.lineEdit.text()
-        try:
-            temp = int(shost)
-            if temp > 0 and temp < 1000:
-                self.n_box_mail = temp
-                self.crudConfig()
-                self.ui.tableWidget.clear()
-                self.ui.label_2.setText("Обновление номера почтового ящика...")
-                self.emit_update.emit(self.n_box_mail)
-                self.dis_gui()
-            else:
-                self.ui.lineEdit.clear()
-        except:
-            print("Введено не число")
-            self.ui.lineEdit.clear()
+        self.box_name = self.ui.lineEdit.text()
+        self.crudConfig()
+        self.ui.tableWidget.clear()
+        self.ui.label_2.setText("Смена почтового ящика...")
+        self.dis_gui()
+        self.emit_update.emit(self.box_name)
+        # try:
+            # temp = int(shost)
+            # if temp > 0 and temp < 1000:
+                # self.n_box_mail = temp
+                # self.crudConfig()
+                # self.ui.tableWidget.clear()
+                # self.ui.label_2.setText("Обновление номера почтового ящика...")
+                # self.emit_update.emit(self.n_box_mail)
+                # self.dis_gui()
+            # else:
+                # self.ui.lineEdit.clear()
+        # except:
+            # print("Введено не число")
+            # self.ui.lineEdit.clear()
                        
     def crudConfig(self):
         path = self.my_dir + "/settings.ini"
@@ -954,6 +981,7 @@ class mywindow(QtWidgets.QMainWindow):
         config.set("Settings", "ip", str(self.ip)) 
         config.set("Settings", "doc_dir", self.doc_dir)
         config.set("Settings", "n_box_mail", str(self.n_box_mail))
+        config.set("Settings", "box_name", self.box_name)
 
         with open(path, "w") as config_file:
             config.write(config_file)
@@ -968,6 +996,7 @@ class mywindow(QtWidgets.QMainWindow):
         config.set("Settings", "ip", str(self.ip))
         config.set("Settings", "doc_dir", self.doc_dir)
         config.set("Settings", "n_box_mail", str(self.n_box_mail))
+        config.set("Settings", "box_name", self.box_name)
         
         with open(path, "w") as config_file:
             config.write(config_file)
@@ -985,6 +1014,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.ip = config.get("Settings", "ip")
         self.doc_dir = config.get("Settings", "doc_dir")
         self.n_box_mail = int(config.get("Settings", "n_box_mail"))
+        self.box_name = config.get("Settings", "box_name")
         print("read ", self.del_in_mail, self.del_tif, self.convert_to_tif, self.ip)
         
     def changeTitle(self, state):
@@ -1026,7 +1056,7 @@ class mywindow(QtWidgets.QMainWindow):
     def button_update(self):
         self.ui.tableWidget.clear()
         self.ui.label_2.setText("Обновление списка файлов...")
-        self.emit_update.emit(self.n_box_mail)
+        self.emit_update.emit(self.box_name)
         self.dis_gui()
         
     
