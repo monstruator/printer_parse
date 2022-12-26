@@ -206,8 +206,8 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         {'url' : 'scan.htm',  'name' : 'Xerox WorkCentre 73xx'},
         {'url' : 'prop.htm', 'name' : 'Xerox WorkCentre 1xx'},
         {'url' : 'prtscn.htm', 'name' : 'Xerox WorkCentre 73(72)'},
-        {'url' : 'scan.htm', 'name' : 'Xerox WorkCentre 5325'},
-        {'url' : 'scan.htm', 'name' : 'Xerox WorkCentre 7120'},
+        {'url' : 'scan.htm', 'name' : 'Xerox WorkCentre 53xx'},
+        {'url' : 'scan.htm', 'name' : 'Xerox WorkCentre 72(71хх)'}, #7120
         {'url' : 'scan/index.php', 'name' : 'Xerox WorkCentre 72xx'},
     ]
     
@@ -263,13 +263,13 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
  
     def connect_to_printer(self):
         try:
-            print('START CONNECT')
+            #print('START CONNECT')
             #self.driver.get(url=self.ip + printer['url'])
             self.driver.get(url=self.ip)
             print("TITLE: ", self.driver.title)
-            if "5325" in self.driver.title:
+            if  "5325" in self.driver.title or "5330" in self.driver.title or "5335" in self.driver.title:
                 self.printer = 4
-            if "7120" in self.driver.title:
+            if "7120" in self.driver.title or "7125" in self.driver.title or "7220" in self.driver.title or "7225" in self.driver.title:
                 self.printer = 5
             if "XEROX WORKCENTRE PRO" in self.driver.title:
                 self.printer = 6
@@ -281,6 +281,8 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                     self.printers[self.printer-1]['name'] = "Xerox WorkCentre 75xx"
                 self.driver.switch_to.default_content()
                 return self.printer
+            if "5325" in self.driver.title:
+                self.printer = 4
             self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])
             iframe = self.driver.find_element(By.NAME,"NF")
             self.driver.switch_to.frame(iframe)
@@ -307,7 +309,24 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                     if self.box_name in el:
                         break
                     count = count + 1
-            if self.printer == 1 or self.printer == 4  or self.printer == 5:
+            if self.printer == 4:
+                mail_boxes = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table[2]/tbody/tr/td/table/tbody/tr/td/table/tbody")
+                count = 0
+                boxes = mail_boxes[0].text.split("\n")
+                #print("BOXES", boxes)
+                for el in boxes:
+                    count = count + 1
+                    el1 = el.split(" ")
+                    #print(count, el1[1])
+                    if self.box_name in el1[1]:
+                        break
+                print("COUNT ", count, len(boxes))
+                if count == len(boxes):
+                    self.toError.emit("Почтовый ящик не найден")
+                    return 0
+                else:
+                    mail_box_num = self.driver.find_element(By.NAME, "list{}".format(count-1)).click()
+            if self.printer == 1   or self.printer == 5:
                 mail_box_num = self.driver.find_element(By.NAME, "list{}".format(count)).click()
             if self.printer == 2:
                 self.driver.find_element(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr[1]/td[2]/small/input").click()
@@ -408,8 +427,9 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             iframe1 = self.driver.find_element(By.NAME,"RF")
             self.driver.switch_to.frame(iframe1)
             self.toProgressBar.emit(40)
-            self.choice_mail_box()
-            self.list_files()
+            res1 = self.choice_mail_box()
+            if res1 ==1:
+                self.list_files()
             self.toInit.emit(self.str1, self.data_files, self.printer)
             self.toProgressBar.emit(100)
         except:
@@ -438,7 +458,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         try:
             str1 = ''
             #выбор формата скачивания
-            if self.printer == 5:
+            if self.printer == 5 or self.printer == 4:
                 select = Select(self.driver.find_element(By.XPATH, "/html/body/form[4]/table[3]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[4]/td[1]/small/select"))
                 if self.convert_to_tif == 1:
                     select.select_by_value('PDF')    
@@ -1002,7 +1022,7 @@ class mywindow(QtWidgets.QMainWindow):
         if  self.printer == 2:
             self.ui.checkBox.setVisible(False)
             self.ui.checkBox.setChecked(False)
-        if  self.printer == 5:
+        if  self.printer == 5 or self.printer == 4:
             self.ui.checkBox_2.setVisible(False)
             self.ui.checkBox_2.setChecked(False)
             self.ui.radioButton.setVisible(False)
