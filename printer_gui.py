@@ -269,7 +269,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             #self.driver.get(url=self.ip + printer['url'])
             self.driver.get(url=self.ip)
             print("TITLE: ", self.driver.title)
-            if  "7328" in self.driver.title: # or "5335" in self.driver.title:
+            if  "7328" in self.driver.title or "7335" in self.driver.title or "7345" in self.driver.title:
                 self.printer = 1
             if  "5325" in self.driver.title or "5330" in self.driver.title or "5335" in self.driver.title:
                 self.printer = 4
