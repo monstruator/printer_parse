@@ -11,11 +11,11 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Ui_MainWindow(object):
-    def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(264, 161)
-        self.centralwidget = QtWidgets.QWidget(MainWindow)
+class Ui_FastPrint(object):
+    def setupUi(self, FastPrint):
+        FastPrint.setObjectName("FastPrint")
+        FastPrint.resize(220, 161)
+        self.centralwidget = QtWidgets.QWidget(FastPrint)
         self.centralwidget.setObjectName("centralwidget")
         self.label = QtWidgets.QLabel(self.centralwidget)
         self.label.setGeometry(QtCore.QRect(20, 30, 81, 16))
@@ -32,18 +32,18 @@ class Ui_MainWindow(object):
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setGeometry(QtCore.QRect(20, 10, 221, 16))
         self.label_2.setObjectName("label_2")
-        MainWindow.setCentralWidget(self.centralwidget)
-        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        FastPrint.setCentralWidget(self.centralwidget)
+        self.statusbar = QtWidgets.QStatusBar(FastPrint)
         self.statusbar.setObjectName("statusbar")
-        MainWindow.setStatusBar(self.statusbar)
+        FastPrint.setStatusBar(self.statusbar)
 
-        self.retranslateUi(MainWindow)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.retranslateUi(FastPrint)
+        QtCore.QMetaObject.connectSlotsByName(FastPrint)
 
-    def retranslateUi(self, MainWindow):
+    def retranslateUi(self, FastPrint):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.label.setText(_translate("MainWindow", "Выбор страниц"))
-        self.pushButton.setText(_translate("MainWindow", "Печать"))
-        self.checkBox.setText(_translate("MainWindow", "Двусторонняя печать"))
-        self.label_2.setText(_translate("MainWindow", "Файл не определен"))
+        FastPrint.setWindowTitle(_translate("FastPrint", "[AB] FastPrint (pages)"))
+        self.label.setText(_translate("FastPrint", "Выбор страниц"))
+        self.pushButton.setText(_translate("FastPrint", "Печать"))
+        self.checkBox.setText(_translate("FastPrint", "Двусторонняя печать"))
+        self.label_2.setText(_translate("FastPrint", "Файл не определен"))

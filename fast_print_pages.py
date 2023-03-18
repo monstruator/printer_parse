@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from fast_gui import Ui_MainWindow  # импорт нашего сгенерированного файла
+from fast_gui import Ui_FastPrint  # импорт нашего сгенерированного файла
 import sys
 import os
 from PyQt5.Qt import *
@@ -23,7 +23,7 @@ class mywindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(mywindow, self).__init__()
-        self.ui = Ui_MainWindow()
+        self.ui = Ui_FastPrint()
         self.ui.setupUi(self)
         self.ui.checkBox.stateChanged.connect(self.checkedc)
         self.ui.pushButton.clicked.connect(self.to_printer)  
@@ -48,13 +48,13 @@ class mywindow(QtWidgets.QMainWindow):
 
     def keyPressEvent(self, event):
         key = event.key()
-        print('Нажали: ' , str(event.key()))  
-        print(app.arguments())
+        print('Нажали: ' , str(event.key()), QtCore.Qt.Key_Return)  
+        #print(app.arguments())
         #if key == 16777221: #win10
-        if key == 16777220: #win7
+        if key == QtCore.Qt.Key_Return or key == QtCore.Qt.Key_Enter: #16777220: #win7
             print("Enter")
             self.to_printer()
-        if key == 16777216:
+        if key == QtCore.Qt.Key_Escape:
             print("Esc")
             self.close()
             

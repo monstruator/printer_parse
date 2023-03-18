@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>FastPrint</class>
+ <widget class="QMainWindow" name="FastPrint">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>264</width>
+    <width>220</width>
     <height>161</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>[AB] FastPrint (pages)</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">
