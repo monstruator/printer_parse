@@ -7,15 +7,12 @@ import win32print
 import win32api
 import time
 import argparse
-
-
  
 class mywindow(QtWidgets.QMainWindow):
     GHOSTSCRIPT_PATH = "C:\\Program Files\\WinFast\\gs\\bin\\gswin64c.exe"
     GSPRINT_PATH = "C:\\Program Files\\WinFast\\Ghostgum\\gsview\\gsprint.exe"
     find_printer = 0
     right_printer = ''
-    #currentprinter = win32print.GetDefaultPrinter()
     rp = ' '
     parser = None
     namespace = None
@@ -33,8 +30,8 @@ class mywindow(QtWidgets.QMainWindow):
         #self.ui.pushButton.setAutoDefault(True)  
         #self.ui.lineEdit.returnPressed.connect(self.ui.pushButton.click)
         if self.namespace.name:
-            self.ui.label_2.setText("")#self.namespace.name
-        self.find_printer = 0
+            self.ui.label_2.setText("")
+            self.find_printer = 0
         all_printers = [printer[2] for printer in win32print.EnumPrinters(2)]
         for i in all_printers:
             if self.rp in i:
@@ -50,8 +47,7 @@ class mywindow(QtWidgets.QMainWindow):
         key = event.key()
         print('Нажали: ' , str(event.key()), QtCore.Qt.Key_Return)  
         #print(app.arguments())
-        #if key == 16777221: #win10
-        if key == QtCore.Qt.Key_Return or key == QtCore.Qt.Key_Enter: #16777220: #win7
+        if key == QtCore.Qt.Key_Return or key == QtCore.Qt.Key_Enter: 
             print("Enter")
             self.to_printer()
         if key == QtCore.Qt.Key_Escape:
@@ -86,10 +82,10 @@ class mywindow(QtWidgets.QMainWindow):
     def checkedc(self, checked):
         if checked:
             print("checked")
-            duplex =  " -dDuplex=true"
+            self.duplex =  " -dDuplex=true"
         else:
             print("not checked")
-            duplex =  " -dDuplex=false"
+            self.duplex =  " -dDuplex=false"
         self.show()
  
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1" 
