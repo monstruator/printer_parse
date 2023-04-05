@@ -22,6 +22,13 @@ import PIL
 from PIL import Image
 import sys
 #----------------------------------------------------------------- 
+import socket
+import json
+import win32print
+import win32api
+from cryptography.fernet import Fernet
+key =  "e_zo1OHbETICBKIWvAKlr4CW19r1_bS4X4J2QLgfgBo="
+
 #from tif_to_pdf2 import convert_with_auto_rotate
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -185,11 +192,61 @@ def convert_with_auto_rotate(tiff, vert = 1): #по умолчанию vert = 1 
         print(ex)
         return 0
 
+class TcpReciever(QtCore.QObject): #поток для приема имен файлов для печати
+    toCheck = QtCore.pyqtSignal(str)
+
+    def __init__(self):
+        super(TcpReciever, self).__init__() #
+
+    def run(self):
+        GHOSTSCRIPT_PATH = "C:\\Program Files\\WinFast\\gs\\bin\\gswin64c.exe"
+        GSPRINT_PATH = "C:\\Program Files\\WinFast\\Ghostgum\\gsview\\gsprint.exe"
+        right_printer = ''
+        rp = ' '
+        HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
+        PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((HOST, PORT))
+            s.listen()
+            while True:
+                conn, addr = s.accept()
+                with conn:
+                    print(f"Connected by {addr}")
+                    data = conn.recv(1024)
+                    if not data:
+                        continue
+                    #str1 = data.decode('utf-8')
+                    data_rec = json.loads(data.decode('utf-8'))
+                    print("rev: ", data_rec['name'])
+
+                    find_printer = 0
+                    all_printers = [printer[2] for printer in win32print.EnumPrinters(2)]
+                    for i in all_printers:
+                        if rp in i:
+                            print("OK")
+                            right_printer = i
+                            find_printer = 1
+                
+                    if find_printer == 0:
+                        printer_name = right_printer
+                        printer_srt = '" -printer "' + printer_name + '" '
+                        file_str = '"' + data_rec['name'] + '"'
+                        if data_rec['pages']:
+                            pages =  ' -sPageList=' + data_rec['pages'] + ' ' 
+                        else:
+                            pages = " "
+                        Str1 = '-ghostscript "' + GHOSTSCRIPT_PATH + printer_srt + data_rec['duplex'] + ' -dBATCH -dNOPAUSE ' + pages + file_str + " -color" 
+                        print(Str1)
+                        self.toCheck.emit(Str1)
+                        #win32api.ShellExecute(0, 'open', GSPRINT_PATH, Str, '.', 0)
+
+#----------------------------------------------------------------------------------------------------------------------------
 class BrowserHandler(QtCore.QObject): #поток для длительных операций
     running = False
     toProgressBar = QtCore.pyqtSignal(int)
     toInit = QtCore.pyqtSignal(str, object, int)
     toError = QtCore.pyqtSignal(str)
+    returnSerial = QtCore.pyqtSignal(str)
     driver = None    
     doc_dir = None
     printer = 0
@@ -288,7 +345,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             if  "133" in self.driver.title or "128" in self.driver.title:
                 self.printer = 2
             if  "7235" in self.driver.title or "7228" in self.driver.title or "7245" in self.driver.title:
-                self.printer = 3    
+                self.printer = 3  
             if "7346" in self.driver.title:
                 self.printer = 7 
             if "7425" in self.driver.title:
@@ -302,7 +359,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.driver.switch_to.frame(iframe1)
             return self.printer
         except Exception as ex:
-            print("ERROR CONNECT to ", printer['name'])
+            print("ERROR CONNECT to ", self.printer['name'])
             print(ex)
             #self.toError.emit("Ошибка поиска принтера")
             return 0  
@@ -1015,6 +1072,20 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
         except Exception as ex:
             print(ex)
             self.toError.emit("Ошибка удаления файла")
+
+    def get_serial(self):
+        print("get_serial")
+        if  "7235" in self.driver.title or "7228" in self.driver.title or "7245" in self.driver.title:               
+            self.driver.get(url=self.ip + "prop.htm")
+            iframe1 = self.driver.find_element(By.NAME,"RF")
+            self.driver.switch_to.frame(iframe1)
+            #serial1 = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small")
+            serial1 = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small")
+            #/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small
+            #/html/body/form[1]/table[1]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small
+            for el in serial1:
+                print("serial ", el.text)
+                self.returnSerial.emit(el.text)
             
             
 #--------------------------------M Y W I N D O W----------------------
@@ -1035,8 +1106,12 @@ class mywindow(QtWidgets.QMainWindow):
     need_pdf = 1
     n_box_mail = 1
     box_name = "None"
+    serial_number = ""
+    pc_id = ""
+    print_str = ""
 
-    emit_start = QtCore.pyqtSignal()
+    #emit_start = QtCore.pyqtSignal()
+    emit_get_serial = QtCore.pyqtSignal()
     emit_connect = QtCore.pyqtSignal()
     emit_update = QtCore.pyqtSignal(str)
     emit_mail_update = QtCore.pyqtSignal()
@@ -1106,6 +1181,7 @@ class mywindow(QtWidgets.QMainWindow):
         self.browserHandler.toProgressBar.connect(self.inProgressBar)
         self.browserHandler.toInit.connect(self.initComplete)
         self.browserHandler.toError.connect(self.funcError)
+        self.browserHandler.returnSerial.connect(self.returnSerial)
         self.thread.started.connect(self.browserHandler.run)
         self.thread.start()
         self.dis_gui()
@@ -1114,8 +1190,26 @@ class mywindow(QtWidgets.QMainWindow):
         self.emit_update.connect(self.browserHandler.update_file)
         self.emit_load_file.connect(self.browserHandler.load_file)
         self.emit_delete_file.connect(self.browserHandler.delete_file)
-         
+        #-----------------------------------------
+        self.thread_tcp = QtCore.QThread()
+        self.emit_get_serial.connect(self.browserHandler.get_serial)
+        self.tcpReciever = TcpReciever()
+        self.tcpReciever.toCheck.connect(self.Check)
+        self.tcpReciever.moveToThread(self.thread_tcp)
+        self.thread_tcp.started.connect(self.tcpReciever.run)
+        self.thread_tcp.start()
     #-----------------------------------------------------------------------------
+    @QtCore.pyqtSlot(str)
+    def returnSerial(self, str1):
+        print('receive serial ', str1)
+        
+
+    @QtCore.pyqtSlot(str)
+    def Check(self, command):
+        print("CHECK ",command)
+        self.print_str = command
+        self.emit_get_serial.emit()
+
     @QtCore.pyqtSlot(int)
     def inProgressBar(self, dig):
         self.ui.progressBar.setValue(dig)
@@ -1259,6 +1353,7 @@ class mywindow(QtWidgets.QMainWindow):
         config.set("Settings", "doc_dir", self.doc_dir)
         config.set("Settings", "n_box_mail", str(self.n_box_mail))
         config.set("Settings", "box_name", self.box_name)
+        config.set("Settings", "pc_id", self.pc_id)
 
         with open(path, "w") as config_file:
             config.write(config_file)
@@ -1274,7 +1369,8 @@ class mywindow(QtWidgets.QMainWindow):
         config.set("Settings", "doc_dir", self.doc_dir)
         config.set("Settings", "n_box_mail", str(self.n_box_mail))
         config.set("Settings", "box_name", self.box_name)
-        
+        config.set("Settings", "pc_id", self.pc_id)
+
         with open(path, "w") as config_file:
             config.write(config_file)
             
@@ -1292,7 +1388,10 @@ class mywindow(QtWidgets.QMainWindow):
         self.doc_dir = config.get("Settings", "doc_dir")
         self.n_box_mail = int(config.get("Settings", "n_box_mail"))
         self.box_name = config.get("Settings", "box_name")
-        print("read ", self.del_in_mail, self.del_tif, self.convert_to_tif, self.ip)
+        self.pc_id = config.get("Settings", "pc_id")
+        f = Fernet(key)
+        self.serial_number = f.decrypt(self.pc_id)
+        print("read ", self.del_in_mail, self.del_tif, self.convert_to_tif, self.ip, self.serial_number)
         
     def changeTitle(self, state):
         if state == Qt.Checked:

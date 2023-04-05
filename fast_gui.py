@@ -27,6 +27,7 @@ class Ui_FastPrint(object):
         self.pushButton.setGeometry(QtCore.QRect(20, 110, 75, 23))
         self.pushButton.setObjectName("pushButton")
         self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox.setEnabled(False)
         self.checkBox.setGeometry(QtCore.QRect(20, 80, 141, 18))
         self.checkBox.setObjectName("checkBox")
         self.label_2 = QtWidgets.QLabel(self.centralwidget)

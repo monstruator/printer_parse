@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from fast_gui import Ui_FastPrint  # импорт нашего сгенерированного файла
+
 import sys
 import os
 from PyQt5.Qt import *
@@ -7,7 +7,50 @@ import win32print
 import win32api
 import time
 import argparse
- 
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+
+class Ui_FastPrint(object):
+    def setupUi(self, FastPrint):
+        FastPrint.setObjectName("FastPrint")
+        FastPrint.resize(220, 161)
+        self.centralwidget = QtWidgets.QWidget(FastPrint)
+        self.centralwidget.setObjectName("centralwidget")
+        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label.setGeometry(QtCore.QRect(20, 30, 81, 16))
+        self.label.setObjectName("label")
+        self.lineEdit = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit.setGeometry(QtCore.QRect(20, 50, 113, 20))
+        self.lineEdit.setObjectName("lineEdit")
+        self.pushButton = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton.setGeometry(QtCore.QRect(20, 110, 75, 23))
+        self.pushButton.setObjectName("pushButton")
+        self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
+        self.checkBox.setEnabled(True)
+        self.checkBox.setGeometry(QtCore.QRect(20, 80, 141, 18))
+        self.checkBox.setObjectName("checkBox")
+        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2.setGeometry(QtCore.QRect(20, 10, 221, 16))
+        self.label_2.setObjectName("label_2")
+        FastPrint.setCentralWidget(self.centralwidget)
+        self.statusbar = QtWidgets.QStatusBar(FastPrint)
+        self.statusbar.setObjectName("statusbar")
+        FastPrint.setStatusBar(self.statusbar)
+
+        self.retranslateUi(FastPrint)
+        QtCore.QMetaObject.connectSlotsByName(FastPrint)
+
+    def retranslateUi(self, FastPrint):
+        _translate = QtCore.QCoreApplication.translate
+        FastPrint.setWindowTitle(_translate("FastPrint", "[AB] FastPrint (pages)"))
+        self.label.setText(_translate("FastPrint", "Выбор страниц"))
+        self.pushButton.setText(_translate("FastPrint", "Печать"))
+        self.checkBox.setText(_translate("FastPrint", "Двусторонняя печать"))
+        self.label_2.setText(_translate("FastPrint", "Файл не определен"))
+
+
+
 class mywindow(QtWidgets.QMainWindow):
     GHOSTSCRIPT_PATH = "C:\\Program Files\\WinFast\\gs\\bin\\gswin64c.exe"
     GSPRINT_PATH = "C:\\Program Files\\WinFast\\Ghostgum\\gsview\\gsprint.exe"
@@ -16,7 +59,7 @@ class mywindow(QtWidgets.QMainWindow):
     rp = ' '
     parser = None
     namespace = None
-    duplex =  " -dDuplex=false"
+    duplex =  " "
 
     def __init__(self):
         super(mywindow, self).__init__()
@@ -82,10 +125,10 @@ class mywindow(QtWidgets.QMainWindow):
     def checkedc(self, checked):
         if checked:
             print("checked")
-            self.duplex =  " -dDuplex=true"
+            self.duplex =  " -duplex_vertical "
         else:
             print("not checked")
-            self.duplex =  " -dDuplex=false"
+            self.duplex =  " "
         self.show()
  
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1" 
