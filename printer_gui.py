@@ -226,8 +226,9 @@ class TcpReciever(QtCore.QObject): #поток для приема имен фа
                             print("OK")
                             right_printer = i
                             find_printer = 1
+                            break
                 
-                    if find_printer == 0:
+                    if find_printer == 1:
                         printer_name = right_printer
                         printer_srt = '" -printer "' + printer_name + '" '
                         file_str = '"' + data_rec['name'] + '"'
@@ -443,6 +444,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                 l = self.driver.find_elements(By.XPATH,"/html/body/form[4]/table/tbody/tr[2]/td/table/tbody/tr")
             if self.printer == 3:
                 l = self.driver.find_elements(By.XPATH,"/html/body/form[3]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr")
+                                                       #/html/body/form[3]/table[1]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr
             if self.printer == 6:
                 self.driver.switch_to.default_content()
                 iframe1 = self.driver.find_element(By.NAME,"theContent")
@@ -457,11 +459,11 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.toProgressBar.emit(50)
             
             for el in l:
-                self.toProgressBar.emit(50 + int(50*count/len(l)))
+                #self.toProgressBar.emit(50 + int(50*count/len(l)))
                 count = count + 1
                 if len(el.text) != 0:
                     if ('Документ номер Имя документа' not in el.text) and ('Документов нет' not in el.text) and ('Номер документа' not in el.text):
-                        #print(el.text)
+                        print(el.text)
                         self.data_files.append(el.text) 
 
         except Exception as ex:
@@ -991,7 +993,6 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                 time.sleep(2) #3
     
                 button1 = self.driver.find_element(By.XPATH, "/html/body/form[4]/div/input").click()
-                
                
                 QtCore.QThread.msleep(800) #2
                 obj = self.driver.switch_to.alert
@@ -1022,8 +1023,7 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
                 #self.list_files() 
                 #print('list')
                 #self.toInit.emit(self.str1, self.data_files, self.printer)
-                #self.toError.emit("Файл " + self.current_file_name + " удален")
-                
+                #self.toError.emit("Файл " + self.current_file_name + " удален")          
                 progress = progress + percent
                 self.toProgressBar.emit(int(progress))
                 
@@ -1074,18 +1074,34 @@ class BrowserHandler(QtCore.QObject): #поток для длительных о
             self.toError.emit("Ошибка удаления файла")
 
     def get_serial(self):
-        print("get_serial")
-        if  "7235" in self.driver.title or "7228" in self.driver.title or "7245" in self.driver.title:               
-            self.driver.get(url=self.ip + "prop.htm")
+        #print("get_serial")
+        try:
+            if self.printer == 3:               
+                self.driver.get(url=self.ip + "prop.htm")
+                iframe1 = self.driver.find_element(By.NAME,"RF")
+                self.driver.switch_to.frame(iframe1)
+                #serial1 = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small")
+                serial1 = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small")
+                #/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small
+                #/html/body/form[1]/table[1]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small
+                for el in serial1:
+                    print("serial ", el.text)
+                    self.returnSerial.emit(el.text)
+                    break
+            #---------------------назад в постовый ящик        
+            self.driver.get(url=self.ip + self.printers[self.printer-1]['url'])
+            #self.toProgressBar.emit(20)
+            iframe = self.driver.find_element(By.NAME,"NF")
+            self.driver.switch_to.frame(iframe)
+            self.driver.find_element(By.LINK_TEXT,'Почтовый ящик').click()
+            self.driver.switch_to.default_content()
             iframe1 = self.driver.find_element(By.NAME,"RF")
             self.driver.switch_to.frame(iframe1)
-            #serial1 = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small")
-            serial1 = self.driver.find_elements(By.XPATH, "/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small")
-            #/html/body/form[1]/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small
-            #/html/body/form[1]/table[1]/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[3]/td/small
-            for el in serial1:
-                print("serial ", el.text)
-                self.returnSerial.emit(el.text)
+            self.choice_mail_box()
+            #self.toProgressBar.emit(30)
+        except:
+            print(ex)
+            self.toError.emit("Ошибка поиска серийника")
             
             
 #--------------------------------M Y W I N D O W----------------------
@@ -1109,6 +1125,7 @@ class mywindow(QtWidgets.QMainWindow):
     serial_number = ""
     pc_id = ""
     print_str = ""
+    check_reason = ""
 
     #emit_start = QtCore.pyqtSignal()
     emit_get_serial = QtCore.pyqtSignal()
@@ -1198,16 +1215,46 @@ class mywindow(QtWidgets.QMainWindow):
         self.tcpReciever.moveToThread(self.thread_tcp)
         self.thread_tcp.started.connect(self.tcpReciever.run)
         self.thread_tcp.start()
+        self.hide() #спрятать в трей
     #-----------------------------------------------------------------------------
     @QtCore.pyqtSlot(str)
     def returnSerial(self, str1):
-        print('receive serial ', str1)
-        
-
+        print('receive serial ', str1, ' серийник из файла: ', self.serial_number)
+        if str1 == self.serial_number:
+            print("Правильный серийный номер")
+            if self.check_reason == "load":
+                self.check_reason = ""
+                items = self.ui.tableWidget.selectedItems()
+                n_files = []
+                current_files_names = []
+                
+                for item in items:
+                    n_files.append(item.row()) #
+                    tup = self.data_files[item.row()]
+                    t_split = tup.split()
+                    current_files_names.append('img0' + t_split[0])
+                    
+                n_files = list(set(n_files)) #список выделенных строк         
+                #print(n_files,current_files_names)
+                if (len(n_files)):
+                    #self.dis_gui()
+                    self.ui.label_2.setText("Скачивание файла...")
+                    self.emit_load_file.emit(n_files, self.del_in_mail, self.del_tif, self.convert_to_tif, self.vert, current_files_names)
+                else:
+                    self.ui.label_2.setText("Файл не выбран.")
+                    self.ui.label_2.setVisible(True) 
+            if self.check_reason == "print":
+                self.check_reason = ""
+                print("Можно печатать")   
+        else:
+            print("Серийный номер не прошел проверку")
+            
+            
     @QtCore.pyqtSlot(str)
     def Check(self, command):
         print("CHECK ",command)
         self.print_str = command
+        self.check_reason = "print"
         self.emit_get_serial.emit()
 
     @QtCore.pyqtSlot(int)
@@ -1390,7 +1437,8 @@ class mywindow(QtWidgets.QMainWindow):
         self.box_name = config.get("Settings", "box_name")
         self.pc_id = config.get("Settings", "pc_id")
         f = Fernet(key)
-        self.serial_number = f.decrypt(self.pc_id)
+        self.serial_number = f.decrypt(self.pc_id).decode()
+        
         print("read ", self.del_in_mail, self.del_tif, self.convert_to_tif, self.ip, self.serial_number)
         
     def changeTitle(self, state):
@@ -1483,33 +1531,9 @@ class mywindow(QtWidgets.QMainWindow):
         #self.current_file_name = 'img0' + t_split[0]
 
     def load_file(self): #скачать файл
-        items = self.ui.tableWidget.selectedItems()
-        n_files = []
-        current_files_names = []
-        
-        for item in items:
-            n_files.append(item.row()) #
-            tup = self.data_files[item.row()]
-            t_split = tup.split()
-            current_files_names.append('img0' + t_split[0])
-            
-        n_files = list(set(n_files)) #список выделенных строк         
-        #print(n_files,current_files_names)
-        if (len(n_files)):
-            #self.dis_gui()
-            self.ui.label_2.setText("Скачивание файла...")
-            self.emit_load_file.emit(n_files, self.del_in_mail, self.del_tif, self.convert_to_tif, self.vert, current_files_names)
-        else:
-            self.ui.label_2.setText("Файл не выбран.")
-            self.ui.label_2.setVisible(True) 
-            
-        #if (len(self.data_files)) and self.n_file > 0: # файлы есть и конкретный выбран
-        #    self.dis_gui()
-        #    self.ui.label_2.setText("Скачивание файла...")
-        #    self.emit_load_file.emit(self.n_file, self.del_in_mail, self.del_tif, self.convert_to_tif, self.vert, self.current_file_name)
-        #else:
-        #    self.ui.label_2.setText("Файл не выбран.")
-        #    self.ui.label_2.setVisible(True)
+        self.check_reason = "load"
+        self.emit_get_serial.emit()
+
 
     def delete_file(self): #удалить файл
         items = self.ui.tableWidget.selectedItems()
